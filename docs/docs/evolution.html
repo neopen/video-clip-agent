@@ -1,0 +1,2566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>视频混剪智能体 PenClip 如何从 MVP 演进到插件平台？能力注册机制的渐进式开放 · PenClip 文档</title>
+  <meta name="description" content="功能堆叠还是架构重构是 AI 工具演进的核心分歧。PenClip 从星型骨架与核心闭环起步，经语义理解与向量匹配、可视化协作，到集群部署与多租户计费，再到 插件市场，能力注册机制由内部实现逐步开放对外 API 与插件 SDK，是渐进式扩展的参考路径。">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://clip.helpenx.com/docs/evolution.html">
+  <meta property="og:site_name" content="PenClip 文档">
+  <meta property="og:title" content="视频混剪智能体 PenClip 如何从 MVP 演进到插件平台？能力注册机制的渐进式开放">
+  <meta property="og:description" content="功能堆叠还是架构重构是 AI 工具演进的核心分歧。PenClip 从星型骨架与核心闭环起步，经语义理解与向量匹配、可视化协作，到集群部署与多租户计费，再到 插件市场，能力注册机制由内部实现逐步开放对外 API 与插件 SDK，是渐进式扩展的参考路径。">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://clip.helpenx.com/docs/evolution.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>✂️</text></svg>">
+  <style>
+:root{--brand:#2563eb;--brand-dark:#1d4ed8;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;color:var(--ink);background:#fff;line-height:1.75;font-size:16px}
+a{color:var(--brand);text-decoration:none}a:hover{color:var(--brand-dark);text-decoration:underline}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 24px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px;color:var(--ink)}
+.topbar .brand .doc-badge{font-size:12px;font-weight:600;color:#fff;background:var(--brand);border-radius:6px;padding:2px 8px}
+.topbar nav{display:flex;gap:20px;font-size:14.5px}
+.topbar nav a{color:var(--muted);font-weight:500}
+.topbar nav a:hover{color:var(--brand)}
+.wrap{display:flex;max-width:1280px;margin:0 auto;padding:0 16px}
+.sidebar{width:264px;flex-shrink:0;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto;padding:24px 16px 40px 0;border-right:1px solid var(--line)}
+.sidebar .side-home{display:block;font-weight:600;color:var(--ink);margin-bottom:16px;font-size:15px}
+.sidebar .side-home:hover{color:var(--brand);text-decoration:none}
+.sidebar h4{font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 8px;font-weight:600}
+.sidebar a{display:block;padding:5px 10px;border-radius:6px;font-size:14px;color:#334155;line-height:1.5}
+.sidebar a:hover{background:var(--bg);color:var(--brand);text-decoration:none}
+.sidebar a.active{background:var(--brand);color:#fff}
+.content{flex:1;min-width:0;padding:32px 20px 60px 36px;max-width:860px}
+.toc-mobile{display:none;margin-bottom:20px;border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.toc-mobile summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.toc-mobile a{display:block;padding:3px 0;font-size:14px}
+.article h1{font-size:1.9em;line-height:1.35;margin:.4em 0 .8em}
+.article h2{font-size:1.45em;margin:1.8em 0 .7em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+.article h3{font-size:1.22em;margin:1.5em 0 .6em}
+.article h4{font-size:1.08em;margin:1.3em 0 .5em}
+.article p{margin:.85em 0}
+.article ul,.article ol{padding-left:1.6em;margin:.7em 0}
+.article li{margin:.35em 0}
+.article img{max-width:100%;height:auto;border-radius:8px}
+.article table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.94em;display:block;overflow-x:auto}
+.article th,.article td{border:1px solid var(--line);padding:8px 12px;text-align:left}
+.article th{background:var(--bg);font-weight:600}
+.article tr:nth-child(even) td{background:#fbfdff}
+.article blockquote{margin:1.1em 0;padding:.7em 1.1em;border-left:4px solid var(--brand);background:var(--bg);border-radius:0 8px 8px 0;color:#334155}
+.article blockquote p{margin:.3em 0}
+.article code:not(pre code){background:#eef2f7;color:#c7254e;padding:.15em .4em;border-radius:4px;font-size:.88em;word-break:break-word}
+.article pre.hljs{background:#f6f8fa;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;margin:1.1em 0;line-height:1.6}
+.article pre.hljs code{background:none;padding:0;color:var(--ink);font-size:.9em;font-family:ui-monospace,SFMono-Regular,'Cascadia Code',Consolas,Menlo,monospace}
+.article pre.mermaid{text-align:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;margin:1.1em 0}
+.article hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+.article .success,.article .tips,.article .warning,.article .danger{border-radius:8px;padding:.9em 1.1em;margin:1.1em 0;border:1px solid}
+.article .success{border-color:#a7f3d0;background:#ecfdf5}.article .success p:first-of-type::before{content:'✅ '}
+.article .tips{border-color:#bfdbfe;background:#eff6ff}.article .tips p:first-of-type::before{content:'💡 '}
+.article .warning{border-color:#fde68a;background:#fffbeb}.article .warning p:first-of-type::before{content:'⚠️ '}
+.article .danger{border-color:#fecaca;background:#fef2f2}.article .danger p:first-of-type::before{content:'🚫 '}
+.article .success>p:first-child,.article .tips>p:first-child,.article .warning>p:first-child,.article .danger>p:first-child{margin-top:0}
+.article .success>p:last-child,.article .tips>p:last-child,.article .warning>p:last-child,.article .danger>p:last-child{margin-bottom:0}
+.doc-meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 8px;font-size:13px;color:var(--muted)}
+.doc-meta .tag{background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:2px 10px}
+.doc-nav{display:flex;justify-content:space-between;gap:16px;margin-top:48px;padding-top:20px;border-top:1px solid var(--line)}
+.doc-nav a{font-weight:600}
+footer{border-top:1px solid var(--line);padding:22px 24px;text-align:center;color:var(--muted);font-size:13.5px}
+footer a{color:var(--muted);margin:0 10px}
+footer a:hover{color:var(--brand)}
+@media (max-width:960px){
+  .sidebar{display:none}
+  .toc-mobile{display:block}
+  .content{padding:20px 6px 50px}
+  .topbar nav{gap:12px}
+}
+</style>
+  <style>
+.hljs{color:#24292e;background:#f6f8fa}
+.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.constant_{color:#d73a49}
+.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:#6f42c1}
+.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:#005cc5}
+.hljs-string,.hljs-meta .hljs-string,.hljs-regexp{color:#032f62}
+.hljs-bullet,.hljs-link,.hljs-meta,.hljs-selector-tag,.hljs-subst,.hljs-symbol{color:#e36209}
+.hljs-built_in,.hljs-class .hljs-title{color:#e36209}
+.hljs-comment,.hljs-meta,.hljs-quote{color:#6a737d}
+.hljs-section{color:#005cc5;font-weight:700}
+.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">✂️ PenClip <span class="doc-badge">文档</span></a>
+    <nav>
+      <a href="https://clip.helpenx.com" target="_blank" rel="noopener">产品官网</a>
+      <a href="https://github.com/neopen/video-clip-agent" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+  <div class="wrap">
+    <aside class="sidebar">
+      <a class="side-home" href="index.html">✂️ 视频混剪智能体 · 文档中心</a>
+      <h4>架构与核心设计</h4><a href="architecture.html">固定流水线还是星型中枢？视频混剪智能体 PenClip 的两种架构模式取舍</a><a href="architecture-design.html">可插拔视频混剪系统 PenClip 如何分层架构？领域模型与设计模式支撑扩展性</a>
+<h4>版本与演进</h4><a href="evolution.html" class="active">视频混剪智能体 PenClip 如何从 MVP 演进到插件平台？能力注册机制的渐进式开放</a>
+<h4>项目概览</h4><a href="index.html">如何用一句话让 AI 剪出成片？PenClip 多智能体系统的人机协同机制</a>
+    </aside>
+    <main class="content">
+      <details class="toc-mobile"><summary>📑 文档目录</summary><div><strong style="font-size:13px;color:var(--muted)">架构与核心设计</strong><a href="architecture.html">固定流水线还是星型中枢？视频混剪智能体 PenClip 的两种架构模式取舍</a><a href="architecture-design.html">可插拔视频混剪系统 PenClip 如何分层架构？领域模型与设计模式支撑扩展性</a></div><div><strong style="font-size:13px;color:var(--muted)">版本与演进</strong><a href="evolution.html">视频混剪智能体 PenClip 如何从 MVP 演进到插件平台？能力注册机制的渐进式开放</a></div><div><strong style="font-size:13px;color:var(--muted)">项目概览</strong><a href="index.html">如何用一句话让 AI 剪出成片？PenClip 多智能体系统的人机协同机制</a></div></details>
+      <article class="article">
+        <div class="doc-meta"><span class="tag">PenClip</span><span class="tag">更新 2026-07-25</span><a href="https://clip.helpenx.com" target="_blank" rel="noopener">clip.helpenx.com ↗</a></div>
+        <h1>PenClip 版本演进</h1>
+<p>相关链接：<a href="https://github.com/neopen/video-clip-agent">GitHub</a> | <a href="https://clip.helpenx.com">官网</a> | <a href="index.html">文档</a></p>
+<ul>
+    <li><a href="architecture.html">PenClip 技术架构（系统总体架构、人机协同、线性链路、星型中枢分发、数据契约、优化策略）</a></li>
+    <li><a href="evolution.html">PenClip 版本演进（MVP、智能语义理解、可视化UI、企业级支持、插件化）</a></li>
+</ul>
+<blockquote>
+<p><strong>文档定位</strong>：这是一篇版本文档。重点是按版本说明功能变化、架构变化和兼容性边界；版本号与发布日期以项目仓库 Release/CHANGELOG 为最终依据。<br>
+<strong>事实边界</strong>：版本文档：版本历史与路线说明应以项目仓库 Release/CHANGELOG 为最终依据。<br>
+<strong>权威来源</strong>：<a href="https://github.com/neopen/video-clip-agent">PenClip 源码仓库</a>；涉及版本历史时，以仓库 Release / CHANGELOG 为准。<br>
+<strong>代码标记</strong>：如果正文出现“源码/实现”字样，表示对应代码路径可在仓库中核对；示例代码仅用于演示调用方式，不应理解为项目源码原样。</p>
+</blockquote>
+<p>在前文的技术架构分析中，我们确立了 PenClip 的两大核心架构设计——星型中枢分发模式作为顶层架构，线性链路节点模式作为中枢可调用的标准工作流。本文将以这个架构认知为基石，重新构建 PenClip 的完整版本演进路径。每个版本都建立在同一个星型骨架之上，能力的丰富而非架构的重构，是贯穿始终的主旋律。</p>
+<h2>版本演进全景图</h2>
+<p>PenClip 的演进路径分为四个清晰的版本阶段。每个版本都有明确的目标、功能边界和交付标准，版本之间形成渐进式的能力积累。</p>
+<pre class="mermaid">timeline
+    title PenClip 版本演进路线图
+    section V0.1 MVP
+        星型骨架+核心闭环
+        : 中枢+能力注册
+        : 线性剪辑工作流
+        : 3个核心智能体
+        : 控制台交互
+    section V0.2 智能增强
+        语义理解升级
+        : LLM解析智能体
+        : 向量匹配能力
+        : 增量操作支持
+        : 项目持久化
+    section V0.3 交互升级
+        Web UI+协作
+        : 可视化故事板
+        : 实时协作
+        : 乐观更新
+        : 代理预览
+    section V1.0 生产就绪
+        企业级能力
+        : 云端集群部署
+        : GPU加速渲染
+        : 账号权限体系
+        : 用量配额计费
+        : 开放API
+    section V2.0 生态开放
+        插件市场
+        : 插件开发SDK
+        : 插件市场平台
+        : Docker沙箱
+        : 版本管理
+        : 社区运营
+</pre>
+<hr>
+<h2>V0.1 — MVP：核心闭环验证</h2>
+<h3>版本目标</h3>
+<p>V0.1 的目标不仅仅是&quot;跑通核心闭环&quot;，更重要的是<strong>建立起正确的架构骨架</strong>。这个骨架从第一天起就是星型中枢分发模式，而非线性链路。线性剪辑流程作为中枢注册的第一个工作流存在，这确保了后续所有版本都在同一个架构范式下演进，不存在&quot;推到重来&quot;式的架构断裂。</p>
+<p>用最少代码验证&quot;自然语言 → 分析 → 匹配 → 合成&quot;的技术可行性，同时建立中枢、能力注册、状态管理、可观测性四大基础组件。</p>
+<h3>架构全景</h3>
+<pre class="mermaid">graph TB
+    subgraph 交互层
+        CLI[控制台界面]
+    end
+
+    subgraph 中枢层[星型中枢骨架]
+        CENTER[指令解析中枢]
+        REGISTRY[能力注册表]
+        STATE[全局状态管理器]
+        OBS[可观测性基线]
+    end
+
+    subgraph 注册的工作流
+        LINEAR[线性剪辑工作流]
+        LINEAR --&gt; SAMP[采样智能体]
+        LINEAR --&gt; PARSE[硬编码解析]
+        LINEAR --&gt; ANAL[视频分析智能体]
+        LINEAR --&gt; MATCH[片段匹配智能体]
+        LINEAR --&gt; COMP[视频合成智能体]
+    end
+
+    subgraph 工具层
+        SCENE[PySceneDetect]
+        CLIP_M[CLIP 模型]
+        FFMPEG[FFmpeg]
+    end
+
+    subgraph 存储
+        MEMORY[MemorySaver]
+        FILES[本地文件系统]
+        LOGS[结构化日志]
+    end
+
+    CLI --&gt; CENTER
+    CENTER --&gt; REGISTRY
+    CENTER --&gt; STATE
+    CENTER --&gt; OBS
+    LINEAR -.-&gt;|注册| REGISTRY
+    CENTER --&gt;|路由| LINEAR
+    ANAL --&gt; SCENE
+    ANAL --&gt; CLIP_M
+    COMP --&gt; FFMPEG
+    STATE --&gt; MEMORY
+    OBS --&gt; LOGS
+</pre>
+<h3>核心组件详解</h3>
+<h4>指令解析中枢</h4>
+<p>V0.1 的中枢虽然功能简单（仅支持关键词匹配），但其架构设计已经包含了完整的意图识别、参数提取和路由决策三个模块的骨架。中枢通过注册表查找能够处理当前意图的工作流或智能体，而非硬编码条件分支。</p>
+<pre class="hljs"><code><span class="hljs-comment"># V0.1 中枢的核心接口（概念代码）</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">CentralHub</span>:
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self</span>):
+        <span class="hljs-variable language_">self</span>.registry = CapabilityRegistry()
+        <span class="hljs-variable language_">self</span>.state = GlobalState()
+        <span class="hljs-variable language_">self</span>.observability = ObservabilityBaseline()
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">process</span>(<span class="hljs-params">self, user_input: <span class="hljs-built_in">str</span>, context: Context</span>) -&gt; Response:
+        <span class="hljs-comment"># 1. 意图识别（V0.1 为关键词匹配）</span>
+        intent = <span class="hljs-variable language_">self</span>.intent_recognizer.recognize(user_input)
+        
+        <span class="hljs-comment"># 2. 参数提取</span>
+        params = <span class="hljs-variable language_">self</span>.param_extractor.extract(user_input, intent)
+        
+        <span class="hljs-comment"># 3. 路由决策：查询注册表</span>
+        handler = <span class="hljs-variable language_">self</span>.registry.lookup(intent)
+        
+        <span class="hljs-comment"># 4. 分发执行</span>
+        result = handler.execute(params, context)
+        
+        <span class="hljs-comment"># 5. 记录可观测性数据</span>
+        <span class="hljs-variable language_">self</span>.observability.record(intent, result)
+        
+        <span class="hljs-keyword">return</span> result
+</code></pre>
+<h4>能力注册机制</h4>
+<p>能力注册是星型架构的核心机制。V0.1 就实现了完整的注册协议：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">注册信息字段</th>
+<th style="text-align:left">说明</th>
+<th style="text-align:left">V0.1 示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">能力名称</td>
+<td style="text-align:left">唯一标识</td>
+<td style="text-align:left">“linear_clip_workflow”</td>
+</tr>
+<tr>
+<td style="text-align:left">支持的意图类型</td>
+<td style="text-align:left">该能力能处理的意图列表</td>
+<td style="text-align:left">[“PLAN_CREATE”, “EXECUTE”]</td>
+</tr>
+<tr>
+<td style="text-align:left">所需参数 Schema</td>
+<td style="text-align:left">执行需要的参数结构</td>
+<td style="text-align:left">{videos: list, slots: list}</td>
+</tr>
+<tr>
+<td style="text-align:left">输出格式</td>
+<td style="text-align:left">返回结果的结构</td>
+<td style="text-align:left">{timeline: object, output_path: string}</td>
+</tr>
+<tr>
+<td style="text-align:left">风险等级</td>
+<td style="text-align:left">low/medium/high</td>
+<td style="text-align:left">“medium”</td>
+</tr>
+<tr>
+<td style="text-align:left">版本</td>
+<td style="text-align:left">能力版本号</td>
+<td style="text-align:left">“0.1.0”</td>
+</tr>
+</tbody>
+</table>
+<p>线性剪辑工作流在系统启动时向中枢注册：</p>
+<pre class="hljs"><code><span class="hljs-comment"># V0.1 工作流注册（概念代码）</span>
+registry.register(
+    name=<span class="hljs-string">&quot;linear_clip_workflow&quot;</span>,
+    intents=[<span class="hljs-string">&quot;PLAN_CREATE&quot;</span>, <span class="hljs-string">&quot;EXECUTE&quot;</span>],
+    handler=LinearClipWorkflow(),
+    schema={
+        <span class="hljs-string">&quot;videos&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;list&quot;</span>, <span class="hljs-string">&quot;items&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>}},
+        <span class="hljs-string">&quot;slots&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;list&quot;</span>, <span class="hljs-string">&quot;items&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>}}
+    },
+    risk_level=<span class="hljs-string">&quot;medium&quot;</span>
+)
+</code></pre>
+<h4>能力自描述协议</h4>
+<p>每个智能体或工作流在注册时，必须提供完整的自描述信息。这使得中枢能够在运行时动态了解系统能力，也为 V1.0 的插件市场奠定了基础。</p>
+<pre class="mermaid">graph LR
+    subgraph 自描述协议
+        A[智能体启动] --&gt; B[构造能力声明]
+        B --&gt; C[声明意图类型列表]
+        B --&gt; D[声明输入参数 Schema]
+        B --&gt; E[声明输出格式]
+        B --&gt; F[声明风险等级]
+        B --&gt; G[声明所需资源]
+    end
+    
+    subgraph 中枢处理
+        H[接收声明] --&gt; I[验证声明完整性]
+        I --&gt; J[存入注册表]
+        J --&gt; K[路由时匹配]
+    end
+    
+    C --&gt; H
+    D --&gt; H
+    E --&gt; H
+    F --&gt; H
+    G --&gt; H
+</pre>
+<h4>可观测性基线</h4>
+<p>V0.1 就建立的可观测性基线包含三个维度：</p>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p><strong>结构化日志</strong>：每个节点执行时记录时间戳、输入摘要、输出摘要、耗时、错误码</p>
+</li>
+<li class="lvl-2">
+<p><strong>性能指标</strong>：各阶段耗时分布（采样、分析、匹配、合成）</p>
+</li>
+<li class="lvl-2">
+<p><strong>业务指标</strong>：匹配成功率、用户确认率、任务完成率</p>
+</li>
+</ul>
+<p>这些数据在 V0.1 用于开发者调试，在后续版本中逐步升级为生产监控和成本分析的基础。</p>
+<h3>功能清单</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模块</th>
+<th style="text-align:left">功能</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">输入</td>
+<td style="text-align:left">上传 2-5 个视频文件</td>
+<td style="text-align:left">支持 mp4/mov，每个 15-120 秒</td>
+</tr>
+<tr>
+<td style="text-align:left">分析</td>
+<td style="text-align:left">场景分割</td>
+<td style="text-align:left">PySceneDetect 自动切分</td>
+</tr>
+<tr>
+<td style="text-align:left">分析</td>
+<td style="text-align:left">关键帧提取</td>
+<td style="text-align:left">每个场景取 1 帧缩略图</td>
+</tr>
+<tr>
+<td style="text-align:left">分析</td>
+<td style="text-align:left">语义标注</td>
+<td style="text-align:left">CLIP 零样本分类</td>
+</tr>
+<tr>
+<td style="text-align:left">指令</td>
+<td style="text-align:left">关键词解析</td>
+<td style="text-align:left">硬编码规则，通过注册表路由</td>
+</tr>
+<tr>
+<td style="text-align:left">匹配</td>
+<td style="text-align:left">标签匹配</td>
+<td style="text-align:left">槽位标签 ↔ 片段标签，按置信度排序</td>
+</tr>
+<tr>
+<td style="text-align:left">合成</td>
+<td style="text-align:left">片段拼接</td>
+<td style="text-align:left">FFmpeg concat</td>
+</tr>
+<tr>
+<td style="text-align:left">合成</td>
+<td style="text-align:left">淡入淡出转场</td>
+<td style="text-align:left">fade 一种</td>
+</tr>
+<tr>
+<td style="text-align:left">交互</td>
+<td style="text-align:left">控制台问答</td>
+<td style="text-align:left">文本表格展示时间线</td>
+</tr>
+<tr>
+<td style="text-align:left">确认</td>
+<td style="text-align:left">规划审核</td>
+<td style="text-align:left">合成前确认</td>
+</tr>
+<tr>
+<td style="text-align:left">输出</td>
+<td style="text-align:left">生成 mp4 文件</td>
+<td style="text-align:left">输出到 ./output/</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测</td>
+<td style="text-align:left">结构化日志</td>
+<td style="text-align:left">各节点耗时、状态记录</td>
+</tr>
+</tbody>
+</table>
+<h3>关键挑战与应对</h3>
+<pre class="mermaid">graph LR
+    subgraph V0.1挑战[V0.1 核心挑战]
+        C1[CLIP 标注不准]
+        C2[场景分割过碎]
+        C3[FFmpeg 转场调试困难]
+        C4[架构认知偏差]
+    end
+    
+    subgraph V0.1应对[V0.1 应对策略]
+        S1[宽泛标签集合 + 低匹配阈值]
+        S2[相邻同类片段合并 + 最小时长2秒]
+        S3[先 concat 拼接，稳定后加 xfade]
+        S4[明确星型为顶层，线性为工作流]
+    end
+    
+    C1 --&gt; S1
+    C2 --&gt; S2
+    C3 --&gt; S3
+    C4 --&gt; S4
+</pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">挑战</th>
+<th style="text-align:left">描述</th>
+<th style="text-align:left">应对策略</th>
+<th style="text-align:left">验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>CLIP 标注不准</strong></td>
+<td style="text-align:left">测试视频内容不在预定义标签集合内</td>
+<td style="text-align:left">标签集合宽泛覆盖 + 匹配阈值降低 30%</td>
+<td style="text-align:left">标注召回率 &gt; 70%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>场景分割过碎</strong></td>
+<td style="text-align:left">同一段落被切成 5+ 个小碎片</td>
+<td style="text-align:left">相邻同类标签合并 + 最小片段 2 秒</td>
+<td style="text-align:left">有效片段占比 &gt; 80%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>FFmpeg 转场调试</strong></td>
+<td style="text-align:left">xfade 参数组合容易出错</td>
+<td style="text-align:left">先用 concat 拼接，逐步叠加 xfade</td>
+<td style="text-align:left">无明显黑场或闪烁</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>架构认知偏差</strong></td>
+<td style="text-align:left">容易误以为线性模式是主架构</td>
+<td style="text-align:left">文档明确 + 代码结构体现星型骨架</td>
+<td style="text-align:left">代码评审通过</td>
+</tr>
+</tbody>
+</table>
+<h3>交付标准</h3>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p>上传 3 个测试视频，输入&quot;自我介绍放开头，活动放中间，风景放结尾&quot;</p>
+</li>
+<li class="lvl-2">
+<p>5 分钟内生成完整视频，无明显黑场或音画不同步</p>
+</li>
+<li class="lvl-2">
+<p>能力注册表可查询已注册的工作流</p>
+</li>
+<li class="lvl-2">
+<p>结构化日志完整记录执行链路</p>
+</li>
+</ul>
+<hr>
+<h2>V0.2 — 智能增强： 语义理解</h2>
+<h3>版本目标</h3>
+<p>在 V0.1 的星型骨架上<strong>注册新的能力</strong>，使用户可以用自然语言描述剪辑意图，同时提升匹配准确度和视频观感质量。关键在于所有新增能力都通过注册机制接入中枢，而非修改中枢代码。</p>
+<h3>架构变化</h3>
+<pre class="mermaid">graph TB
+    subgraph V0.2_新增[V0.2 新增能力]
+        CENTER2[指令解析中枢]
+        REGISTRY2[能力注册表]
+        
+        原有工作流[线性剪辑工作流&lt;br/&gt;已注册]
+        新增解析[LLM指令解析能力&lt;br/&gt;新注册]
+        新增匹配[向量匹配能力&lt;br/&gt;新注册]
+        新增音频[音频处理能力&lt;br/&gt;新注册]
+        
+        CENTER2 --&gt; REGISTRY2
+        原有工作流 -.-&gt;|保留| REGISTRY2
+        新增解析 -.-&gt;|注册| REGISTRY2
+        新增匹配 -.-&gt;|注册| REGISTRY2
+        新增音频 -.-&gt;|注册| REGISTRY2
+        
+        REGISTRY2 --&gt;|路由| 原有工作流
+        REGISTRY2 --&gt;|路由| 新增解析
+        REGISTRY2 --&gt;|路由| 新增匹配
+        REGISTRY2 --&gt;|路由| 新增音频
+    end
+    
+    subgraph 工具层新增
+        LLM_SVC[LLM 服务]
+        EMBED[Embedding 模型]
+        SQLITE[(SQLite 持久化)]
+    end
+    
+    新增解析 --&gt; LLM_SVC
+    新增匹配 --&gt; EMBED
+    CENTER2 --&gt; SQLITE
+</pre>
+<h3>新增能力详解</h3>
+<h4>LLM 指令解析能力</h4>
+<p>这是 V0.2 最核心的新增能力。用户不再需要记忆关键词，可以用自然语言描述剪辑意图。该能力注册到中枢后，当用户输入被识别为&quot;规划类指令&quot;时，中枢会路由到这个能力而非硬编码解析器。</p>
+<p>能力声明示例：</p>
+<pre class="hljs"><code>registry.register(
+    name=<span class="hljs-string">&quot;llm_intent_parser&quot;</span>,
+    intents=[<span class="hljs-string">&quot;PLAN_CREATE&quot;</span>, <span class="hljs-string">&quot;PLAN_APPEND&quot;</span>, <span class="hljs-string">&quot;PLAN_MODIFY&quot;</span>],
+    handler=LLMParser(),
+    schema={
+        <span class="hljs-string">&quot;instruction&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>, <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;用户的自然语言指令&quot;</span>},
+        <span class="hljs-string">&quot;videos&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;list&quot;</span>, <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;可用视频列表&quot;</span>},
+        <span class="hljs-string">&quot;context&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>, <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;对话上下文&quot;</span>}
+    },
+    output_schema={
+        <span class="hljs-string">&quot;timeline&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;array&quot;</span>, <span class="hljs-string">&quot;items&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>}},
+        <span class="hljs-string">&quot;clarification_needed&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;boolean&quot;</span>},
+        <span class="hljs-string">&quot;clarification_question&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>, <span class="hljs-string">&quot;optional&quot;</span>: <span class="hljs-literal">True</span>}
+    },
+    risk_level=<span class="hljs-string">&quot;low&quot;</span>,
+    resource_requirements={<span class="hljs-string">&quot;llm_api&quot;</span>: <span class="hljs-literal">True</span>}
+)
+</code></pre>
+<h4>向量匹配能力</h4>
+<p>原有关键词匹配升级为向量语义匹配，匹配准确度显著提升。该能力作为独立的能力注册，与线性工作流中的标签匹配共存——用户可以根据需要选择使用哪种匹配方式。</p>
+<h4>音频处理能力</h4>
+<p>将音量归一化、背景音乐混音等音频操作封装为独立能力，可以在线性工作流中被调用，也可以被用户直接通过中枢调用（例如&quot;把这段音量调大&quot;）。</p>
+<h4>增量操作支持</h4>
+<p>这是星型架构中最重要的能力之一。用户在中途发出&quot;替换第三个片段&quot;的指令时，匹配能力需要支持只重新匹配该槽位，而非全量重算。</p>
+<pre class="mermaid">graph TB
+    subgraph 全量匹配
+        F1[用户需求] --&gt; F2[匹配所有槽位]
+        F2 --&gt; F3[完整时间线]
+    end
+    
+    subgraph 增量匹配[增量匹配 - V0.2新增]
+        I1[局部修改指令] --&gt; I2{识别目标}
+        I2 --&gt;|单个槽位| I3[仅匹配该槽位]
+        I2 --&gt;|属性修改| I4[直接更新属性]
+        I2 --&gt;|多个槽位| I5[批量匹配指定槽位]
+        I3 --&gt; I6[其他槽位保持不变]
+        I4 --&gt; I6
+        I5 --&gt; I6
+    end
+    
+    F1 -.-&gt;|V0.1| F2
+    I1 -.-&gt;|V0.2新增| I2
+</pre>
+<h3>功能清单</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模块</th>
+<th style="text-align:left">新增功能</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">指令</td>
+<td style="text-align:left">LLM 指令解析</td>
+<td style="text-align:left">GPT-4o-mini / Qwen，结构化输出</td>
+</tr>
+<tr>
+<td style="text-align:left">指令</td>
+<td style="text-align:left">模糊指令澄清</td>
+<td style="text-align:left">指令不明确时主动反问</td>
+</tr>
+<tr>
+<td style="text-align:left">匹配</td>
+<td style="text-align:left">向量语义匹配</td>
+<td style="text-align:left">text-embedding + 余弦相似度</td>
+</tr>
+<tr>
+<td style="text-align:left">匹配</td>
+<td style="text-align:left">多候选推荐</td>
+<td style="text-align:left">每个槽位返回 3 个候选</td>
+</tr>
+<tr>
+<td style="text-align:left">匹配</td>
+<td style="text-align:left">增量匹配</td>
+<td style="text-align:left">支持单槽位重新匹配</td>
+</tr>
+<tr>
+<td style="text-align:left">合成</td>
+<td style="text-align:left">多种转场效果</td>
+<td style="text-align:left">slide、fade_black、wipe</td>
+</tr>
+<tr>
+<td style="text-align:left">合成</td>
+<td style="text-align:left">背景音乐支持</td>
+<td style="text-align:left">指定 mp3，自动混音</td>
+</tr>
+<tr>
+<td style="text-align:left">合成</td>
+<td style="text-align:left">音量归一化</td>
+<td style="text-align:left">loudnorm 滤镜</td>
+</tr>
+<tr>
+<td style="text-align:left">交互</td>
+<td style="text-align:left">对话历史</td>
+<td style="text-align:left">回顾和修改之前指令</td>
+</tr>
+<tr>
+<td style="text-align:left">交互</td>
+<td style="text-align:left">片段预览</td>
+<td style="text-align:left">播放候选片段</td>
+</tr>
+<tr>
+<td style="text-align:left">持久化</td>
+<td style="text-align:left">项目保存/加载</td>
+<td style="text-align:left">SQLite 存储状态</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测</td>
+<td style="text-align:left">LLM 调用追踪</td>
+<td style="text-align:left">token 消耗、延迟记录</td>
+</tr>
+</tbody>
+</table>
+<h3>技术决策</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">决策点</th>
+<th style="text-align:left">选择</th>
+<th style="text-align:left">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">LLM 选型</td>
+<td style="text-align:left">GPT-4o-mini / Qwen2.5-7B</td>
+<td style="text-align:left">平衡成本与效果</td>
+</tr>
+<tr>
+<td style="text-align:left">向量匹配</td>
+<td style="text-align:left">text-embedding-3-small + 余弦相似度</td>
+<td style="text-align:left">比标签匹配更灵活</td>
+</tr>
+<tr>
+<td style="text-align:left">音频处理</td>
+<td style="text-align:left">FFmpeg amix + loudnorm</td>
+<td style="text-align:left">无需额外依赖</td>
+</tr>
+<tr>
+<td style="text-align:left">持久化</td>
+<td style="text-align:left">SQLite + SqliteSaver</td>
+<td style="text-align:left">单文件，免安装</td>
+</tr>
+<tr>
+<td style="text-align:left">增量操作</td>
+<td style="text-align:left">槽位级状态追踪</td>
+<td style="text-align:left">精确定位修改范围</td>
+</tr>
+</tbody>
+</table>
+<h3>关键挑战与应对</h3>
+<pre class="mermaid">graph LR
+    subgraph V0.2挑战[V0.2 核心挑战]
+        C5[LLM 输出不可控]
+        C6[LLM 延迟影响体验]
+        C7[音频混合爆音]
+        C8[增量操作状态管理]
+        C9[向量匹配冷启动]
+    end
+    
+    subgraph V0.2应对[V0.2 应对策略]
+        S5[JSON Schema 校验 + 重试机制]
+        S6[等待动画 + 非关键路径缓存]
+        S7[loudnorm 归一化 + 峰值限制]
+        S8[槽位级独立版本号]
+        S9[CLIP 标注 + 语义嵌入混合]
+    end
+    
+    C5 --&gt; S5
+    C6 --&gt; S6
+    C7 --&gt; S7
+    C8 --&gt; S8
+    C9 --&gt; S9
+</pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">挑战</th>
+<th style="text-align:left">描述</th>
+<th style="text-align:left">应对策略</th>
+<th style="text-align:left">验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>LLM 输出不可控</strong></td>
+<td style="text-align:left">模型可能生成不合法的时间线结构</td>
+<td style="text-align:left">JSON Schema 强校验 + 自动重试（最多 3 次）</td>
+<td style="text-align:left">结构合法率 &gt; 98%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>LLM 延迟</strong></td>
+<td style="text-align:left">API 调用增加 2-5 秒等待</td>
+<td style="text-align:left">等待动画反馈 + 相似指令缓存（命中率 &gt; 40%）</td>
+<td style="text-align:left">用户等待感知 &lt; 2 秒</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>音频混合爆音</strong></td>
+<td style="text-align:left">多段音频 + BGM 混合出现峰值爆音</td>
+<td style="text-align:left">loudnorm 响度归一化 + 峰值限制 -0.5dB</td>
+<td style="text-align:left">无 audible 爆音</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>增量操作状态管理</strong></td>
+<td style="text-align:left">局部修改需精确定位更新范围</td>
+<td style="text-align:left">每个槽位独立版本号 + 状态 diff 追踪</td>
+<td style="text-align:left">增量操作 &lt; 500ms</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>向量匹配冷启动</strong></td>
+<td style="text-align:left">用户视频内容不在 LLM 知识范围内</td>
+<td style="text-align:left">CLIP 视觉特征 + LLM 语义嵌入加权混合</td>
+<td style="text-align:left">匹配准确率 &gt; 75%</td>
+</tr>
+</tbody>
+</table>
+<h3>交付标准</h3>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p>用户可以说&quot;帮我把三个视频里大家笑的部分剪成一个欢快的集锦&quot;</p>
+</li>
+<li class="lvl-2">
+<p>系统理解并执行，输出视频有节奏感和情绪连贯性</p>
+</li>
+<li class="lvl-2">
+<p>支持中途保存、退出、再打开继续编辑</p>
+</li>
+<li class="lvl-2">
+<p>增量操作响应时间 &lt; 2 秒</p>
+</li>
+</ul>
+<hr>
+<h2>V0.3 — 交互升级：Web UI 与协作</h2>
+<h3>版本目标</h3>
+<p><strong>从控制台走向浏览器，提供可视化的编辑体验。</strong></p>
+<p>星型中枢在后端保持不变，前端通过 WebSocket 与中枢通信，将中枢的状态渲染为可视化故事板。</p>
+<h3>架构变化</h3>
+<p>V0.3 的架构引入了完整的前后端分离设计。前端使用 React 构建单页应用，通过 WebSocket 与后端保持实时通信。后端 API 基于 FastAPI 框架，提供 RESTful 接口和 WebSocket 服务。认证中间件负责用户身份验证和会话管理。存储层从单一的 SQLite 扩展为 SQLite 加 Redis 的组合——SQLite 存储项目数据和历史记录，Redis 存储会话状态和缓存。</p>
+<pre class="mermaid">graph TB
+    subgraph 前端层[V0.3 新增前端层]
+        WEB[React SPA]
+        WS_CLIENT[WebSocket 客户端]
+        STORYBOARD[故事板组件]
+        PREVIEW[预览播放器]
+        OPTIMISTIC[乐观更新层]
+    end
+
+    subgraph 后端层[原有后端层 - 保持不变]
+        CENTER3[指令解析中枢]
+        REGISTRY3[能力注册表]
+        ABILITIES[已注册能力集]
+        STATE3[全局状态]
+    end
+
+    subgraph 新增后端
+        WS_SERVER[WebSocket 服务]
+        AUTH[认证中间件]
+        PROXY[代理视频生成器]
+    end
+
+    WEB --&gt;|HTTP/WS| CENTER3
+    WS_CLIENT &lt;--&gt; WS_SERVER
+    WS_SERVER --&gt; CENTER3
+    STORYBOARD --&gt; OPTIMISTIC
+    OPTIMISTIC --&gt;|状态同步| WS_CLIENT
+    CENTER3 --&gt;|状态 diff 推送| WS_SERVER
+    WS_SERVER --&gt;|状态 diff| WEB
+    PROXY --&gt;|生成代理视频| PREVIEW
+    CENTER3 --&gt; AUTH
+</pre>
+<h3>新增能力详解</h3>
+<h4>乐观更新层</h4>
+<p>Web UI 中，用户的操作需要即时反馈。乐观更新策略让前端在等待后端确认时立即更新 UI，如果操作失败则回滚并提示用户。</p>
+<pre class="mermaid">graph TB
+    subgraph 乐观更新流程
+        U[用户拖拽槽位] --&gt; F[前端立即更新UI]
+        F --&gt; R[发送请求到后端]
+        R --&gt;|成功| C[确认更新，状态一致]
+        R --&gt;|失败| B[回滚UI，显示错误]
+        C --&gt; S[等待后续操作]
+        B --&gt; S
+    end
+    
+    subgraph 冲突处理
+        C1[本地版本号] --&gt; C2[操作时携带版本号]
+        C2 --&gt; C3{服务端版本匹配?}
+        C3 --&gt;|是| C4[应用变更]
+        C3 --&gt;|否| C5[拒绝操作，拉取最新状态]
+    end
+</pre>
+<h4>代理预览能力</h4>
+<p>大视频在浏览器中直接播放可能卡顿。后端在上传时自动生成低分辨率代理视频，预览时使用代理，最终合成使用原片。</p>
+<h4>实时协作能力</h4>
+<p>基于 WebSocket 的状态同步，多个用户可以同时编辑同一项目。星型中枢的全局状态是协作的基础——所有用户共享同一个状态视图。</p>
+<pre class="mermaid">graph TB
+    subgraph 协作架构
+        U1[用户A] --&gt; WS1[WebSocket]
+        U2[用户B] --&gt; WS2[WebSocket]
+        U3[用户C] --&gt; WS3[WebSocket]
+        
+        WS1 --&gt; COLLAB[协作服务]
+        WS2 --&gt; COLLAB
+        WS3 --&gt; COLLAB
+        
+        COLLAB --&gt;|操作转换| CONFLICT[冲突解决]
+        CONFLICT --&gt;|应用| STATE[全局状态]
+        STATE --&gt;|广播 diff| WS1
+        STATE --&gt;|广播 diff| WS2
+        STATE --&gt;|广播 diff| WS3
+    end
+</pre>
+<h3>功能清单</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模块</th>
+<th style="text-align:left">新增功能</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">界面</td>
+<td style="text-align:left">三栏式 Web 布局</td>
+<td style="text-align:left">素材库 + 预览区 + 对话面板</td>
+</tr>
+<tr>
+<td style="text-align:left">界面</td>
+<td style="text-align:left">可视化故事板</td>
+<td style="text-align:left">槽位卡片可拖拽排序、点击选中</td>
+</tr>
+<tr>
+<td style="text-align:left">界面</td>
+<td style="text-align:left">视频预览播放器</td>
+<td style="text-align:left">支持播放片段或整条时间线</td>
+</tr>
+<tr>
+<td style="text-align:left">界面</td>
+<td style="text-align:left">转场选择器</td>
+<td style="text-align:left">点击槽位间连接线弹出选项</td>
+</tr>
+<tr>
+<td style="text-align:left">界面</td>
+<td style="text-align:left">对话面板</td>
+<td style="text-align:left">聊天式交互，可点击候选</td>
+</tr>
+<tr>
+<td style="text-align:left">交互</td>
+<td style="text-align:left">乐观更新</td>
+<td style="text-align:left">操作即时反馈</td>
+</tr>
+<tr>
+<td style="text-align:left">协作</td>
+<td style="text-align:left">多人实时协作</td>
+<td style="text-align:left">WebSocket 状态同步</td>
+</tr>
+<tr>
+<td style="text-align:left">协作</td>
+<td style="text-align:left">操作历史/撤销</td>
+<td style="text-align:left">Ctrl+Z / Ctrl+Y</td>
+</tr>
+<tr>
+<td style="text-align:left">预览</td>
+<td style="text-align:left">代理视频</td>
+<td style="text-align:left">低分辨率预览，原片合成</td>
+</tr>
+<tr>
+<td style="text-align:left">导入</td>
+<td style="text-align:left">素材库管理</td>
+<td style="text-align:left">本地或 URL 导入</td>
+</tr>
+<tr>
+<td style="text-align:left">导入</td>
+<td style="text-align:left">标签管理</td>
+<td style="text-align:left">用户自定义语义标签</td>
+</tr>
+<tr>
+<td style="text-align:left">导出</td>
+<td style="text-align:left">多格式导出</td>
+<td style="text-align:left">mp4、mov、gif</td>
+</tr>
+<tr>
+<td style="text-align:left">导出</td>
+<td style="text-align:left">分辨率选择</td>
+<td style="text-align:left">720p / 1080p / 竖屏 9:16</td>
+</tr>
+</tbody>
+</table>
+<h3>技术决策</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">决策点</th>
+<th style="text-align:left">选择</th>
+<th style="text-align:left">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">前端框架</td>
+<td style="text-align:left">React + Zustand</td>
+<td style="text-align:left">轻量状态管理，适合实时协作</td>
+</tr>
+<tr>
+<td style="text-align:left">视频预览</td>
+<td style="text-align:left">video.js / hls.js</td>
+<td style="text-align:left">流式播放，兼容性好</td>
+</tr>
+<tr>
+<td style="text-align:left">实时通信</td>
+<td style="text-align:left">WebSocket (FastAPI)</td>
+<td style="text-align:left">低延迟双向通信</td>
+</tr>
+<tr>
+<td style="text-align:left">状态同步</td>
+<td style="text-align:left">状态映射层 + diff 推送</td>
+<td style="text-align:left">增量更新，减少带宽</td>
+</tr>
+<tr>
+<td style="text-align:left">协作冲突</td>
+<td style="text-align:left">乐观锁 + 操作转换</td>
+<td style="text-align:left">多人不冲突</td>
+</tr>
+<tr>
+<td style="text-align:left">会话管理</td>
+<td style="text-align:left">Redis + JWT</td>
+<td style="text-align:left">支持分布式部署</td>
+</tr>
+<tr>
+<td style="text-align:left">代理视频</td>
+<td style="text-align:left">FFmpeg 360p 转码</td>
+<td style="text-align:left">预览性能优化</td>
+</tr>
+</tbody>
+</table>
+<h3>关键挑战与应对</h3>
+<pre class="mermaid">graph LR
+    subgraph V0.3挑战[V0.3 核心挑战]
+        C10[前后端状态同步]
+        C11[视频预览性能]
+        C12[多人协作冲突]
+        C13[网络延迟影响体验]
+        C14[LLM 成本上升]
+    end
+    
+    subgraph V0.3应对[V0.3 应对策略]
+        S10[状态映射层 + diff 增量推送]
+        S11[代理视频 360p 预览]
+        S12[乐观锁 + 版本号校验]
+        S13[乐观更新 + 离线操作队列]
+        S14[本地模型 + 频率限制]
+    end
+    
+    C10 --&gt; S10
+    C11 --&gt; S11
+    C12 --&gt; S12
+    C13 --&gt; S13
+    C14 --&gt; S14
+</pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">挑战</th>
+<th style="text-align:left">描述</th>
+<th style="text-align:left">应对策略</th>
+<th style="text-align:left">验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>前后端状态同步</strong></td>
+<td style="text-align:left">LangGraph State 结构复杂，前端渲染困难</td>
+<td style="text-align:left">状态映射层（State → ViewModel）+ diff 推送</td>
+<td style="text-align:left">同步延迟 &lt; 200ms</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>视频预览性能</strong></td>
+<td style="text-align:left">大视频浏览器播放卡顿</td>
+<td style="text-align:left">后端生成 360p 代理视频，预览用代理</td>
+<td style="text-align:left">预览加载 &lt; 1 秒</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>多人协作冲突</strong></td>
+<td style="text-align:left">两人同时拖拽同一槽位</td>
+<td style="text-align:left">乐观锁 + 版本号校验（先到先得）</td>
+<td style="text-align:left">冲突率 &lt; 5%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>网络延迟</strong></td>
+<td style="text-align:left">用户操作到响应的时间差</td>
+<td style="text-align:left">乐观更新即时反馈 + 离线队列批量同步</td>
+<td style="text-align:left">操作感知 &lt; 100ms</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>LLM 成本</strong></td>
+<td style="text-align:left">Web 多人使用导致 API 费用上升</td>
+<td style="text-align:left">Qwen2.5 本地模型处理常规请求 + 频率限制</td>
+<td style="text-align:left">单用户成本 &lt; $0.01/任务</td>
+</tr>
+</tbody>
+</table>
+<h3>交付标准</h3>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p>用户可在浏览器完成从上传到导出的全流程</p>
+</li>
+<li class="lvl-2">
+<p>拖拽、点击、对话三种交互方式无缝切换</p>
+</li>
+<li class="lvl-2">
+<p>两个用户可同时编辑同一个项目</p>
+</li>
+<li class="lvl-2">
+<p>拖拽操作即时响应（&lt; 100ms）</p>
+</li>
+</ul>
+<hr>
+<h2>V1.0 — 生产就绪：企业级能力</h2>
+<h3>版本目标</h3>
+<p><strong>从个人工具升级为可部署、可扩展、可商业化运营的产品。</strong></p>
+<p>V0.3 已经具备了良好的用户体验，但距离真正的企业级产品还有距离。V1.0 的核心目标是将 PenClip 从&quot;好用的工具&quot;升级为&quot;可靠的服务&quot;——解决规模化部署、多租户隔离、性能保障、商业化运营等生产环境必须面对的问题。</p>
+<p><strong>关键定位变化</strong>：V1.0 不追求生态开放，而是聚焦于让系统本身变得健壮、可运维、可商业化。</p>
+<h3>架构全景图</h3>
+<pre class="mermaid">graph TB
+    subgraph 接入层
+        LB[Nginx / Traefik 负载均衡]
+        CDN[静态资源 CDN]
+        WAF[Web 应用防火墙]
+    end
+
+    subgraph 应用层
+        subgraph 无状态服务
+            API1[FastAPI 实例 1]
+            API2[FastAPI 实例 2]
+            API3[FastAPI 实例 N]
+            WS[WebSocket 服务集群]
+        end
+        
+        subgraph 有状态服务
+            CENTER[指令解析中枢]
+            REGISTRY[能力注册表]
+            STATE[全局状态管理]
+        end
+    end
+
+    subgraph 异步任务层
+        QUEUE[Redis 任务队列]
+        CELERY1[Celery Worker 1]
+        CELERY2[Celery Worker 2]
+        GPU_POOL[GPU 渲染池]
+        SCHEDULER[任务调度器]
+    end
+
+    subgraph 数据层
+        PG[(PostgreSQL&lt;br/&gt;主从复制)]
+        REDIS[(Redis Cluster&lt;br/&gt;缓存/队列)]
+        MINIO[(MinIO&lt;br/&gt;分布式存储)]
+        VECTOR[(Milvus&lt;br/&gt;向量检索)]
+        ES[(Elasticsearch&lt;br/&gt;日志检索)]
+    end
+
+    subgraph 可观测性
+        METRIC[Prometheus + Grafana]
+        TRACE[Jaeger 链路追踪]
+        ALERT[AlertManager 告警]
+        AUDIT[审计日志]
+    end
+
+    subgraph 账号体系
+        AUTH[OAuth2.0 / OIDC]
+        RBAC[权限管理]
+        QUOTA[配额管理]
+        BILLING[计费模块]
+    end
+
+    LB --&gt; API1 &amp; API2 &amp; API3
+    LB --&gt; WS
+    API1 --&gt; CENTER
+    CENTER --&gt; REGISTRY
+    CENTER --&gt; STATE
+    API1 --&gt; QUEUE
+    QUEUE --&gt; CELERY1 &amp; CELERY2
+    CELERY1 --&gt; GPU_POOL
+    CELERY2 --&gt; GPU_POOL
+    SCHEDULER --&gt; QUEUE
+    API1 --&gt; PG &amp; REDIS &amp; MINIO &amp; VECTOR
+    API1 --&gt; METRIC &amp; TRACE &amp; ALERT &amp; AUDIT
+    API1 --&gt; AUTH
+    AUTH --&gt; RBAC &amp; QUOTA &amp; BILLING
+</pre>
+<h3>核心能力详解</h3>
+<h4>一、云端集群部署</h4>
+<p>V1.0 的部署架构从 Docker 单机升级为可水平扩展的集群方案。</p>
+<p><strong>部署拓扑</strong>：</p>
+<pre class="mermaid">graph TB
+    subgraph 生产环境[生产环境部署]
+        subgraph 可用区A[可用区 A]
+            API_A[API Pod ×2]
+            WS_A[WebSocket Pod ×1]
+            PG_A[(PostgreSQL 主)]
+        end
+        
+        subgraph 可用区B[可用区 B]
+            API_B[API Pod ×2]
+            WS_B[WebSocket Pod ×1]
+            PG_B[(PostgreSQL 备)]
+        end
+        
+        subgraph 计算池[GPU 计算池]
+            GPU1[GPU Node 1]
+            GPU2[GPU Node 2]
+            GPU3[GPU Node 3]
+        end
+        
+        subgraph 存储[存储层]
+            MINIO_A[(MinIO 节点1)]
+            MINIO_B[(MinIO 节点2)]
+            MINIO_C[(MinIO 节点3)]
+        end
+    end
+    
+    API_A --&gt; PG_A
+    API_B --&gt; PG_B
+    PG_A --&gt;|同步| PG_B
+    GPU1 &amp; GPU2 &amp; GPU3 --&gt; MINIO_A &amp; MINIO_B &amp; MINIO_C
+</pre>
+<p><strong>核心配置</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">组件</th>
+<th style="text-align:left">配置</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">API 服务</td>
+<td style="text-align:left">水平扩展 2-10 实例</td>
+<td style="text-align:left">无状态，可滚动更新</td>
+</tr>
+<tr>
+<td style="text-align:left">WebSocket</td>
+<td style="text-align:left">独立部署，支持 sticky session</td>
+<td style="text-align:left">长连接管理</td>
+</tr>
+<tr>
+<td style="text-align:left">PostgreSQL</td>
+<td style="text-align:left">主从复制 + 每日备份</td>
+<td style="text-align:left">数据可靠性</td>
+</tr>
+<tr>
+<td style="text-align:left">Redis</td>
+<td style="text-align:left">Cluster 模式（6 节点）</td>
+<td style="text-align:left">高可用缓存</td>
+</tr>
+<tr>
+<td style="text-align:left">MinIO</td>
+<td style="text-align:left">分布式模式（4 节点起）</td>
+<td style="text-align:left">对象存储冗余</td>
+</tr>
+<tr>
+<td style="text-align:left">GPU 节点</td>
+<td style="text-align:left">自动扩缩容</td>
+<td style="text-align:left">按任务量动态调整</td>
+</tr>
+</tbody>
+</table>
+<p><strong>一键部署</strong>：</p>
+<pre class="hljs"><code><span class="hljs-comment"># docker-compose.prod.yml 核心片段（概念）</span>
+<span class="hljs-attr">version:</span> <span class="hljs-string">&#x27;3.8&#x27;</span>
+<span class="hljs-attr">services:</span>
+  <span class="hljs-attr">api:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">PenClip/api:1.0</span>
+    <span class="hljs-attr">deploy:</span>
+      <span class="hljs-attr">replicas:</span> <span class="hljs-number">3</span>
+      <span class="hljs-attr">resources:</span>
+        <span class="hljs-attr">limits:</span>
+          <span class="hljs-attr">memory:</span> <span class="hljs-string">4G</span>
+    <span class="hljs-attr">environment:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">DATABASE_URL=postgresql://...</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">REDIS_URL=redis://redis-cluster:6379</span>
+      
+  <span class="hljs-attr">websocket:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">PenClip/ws:1.0</span>
+    <span class="hljs-attr">deploy:</span>
+      <span class="hljs-attr">replicas:</span> <span class="hljs-number">2</span>
+      
+  <span class="hljs-attr">celery-worker:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">PenClip/worker:1.0</span>
+    <span class="hljs-attr">deploy:</span>
+      <span class="hljs-attr">replicas:</span> <span class="hljs-number">5</span>
+    <span class="hljs-attr">depends_on:</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">redis</span>
+      <span class="hljs-bullet">-</span> <span class="hljs-string">minio</span>
+      
+  <span class="hljs-attr">gpu-renderer:</span>
+    <span class="hljs-attr">image:</span> <span class="hljs-string">PenClip/renderer:1.0</span>
+    <span class="hljs-attr">deploy:</span>
+      <span class="hljs-attr">replicas:</span> <span class="hljs-number">2</span>
+    <span class="hljs-attr">resources:</span>
+      <span class="hljs-attr">reservations:</span>
+        <span class="hljs-attr">devices:</span>
+          <span class="hljs-bullet">-</span> <span class="hljs-attr">capabilities:</span> [<span class="hljs-string">gpu</span>]
+</code></pre>
+<h4>二、GPU 加速渲染</h4>
+<p>V1.0 引入 GPU 渲染节点，将视频合成速度提升 10 倍以上。</p>
+<p><strong>渲染流水线</strong>：</p>
+<pre class="mermaid">graph TB
+    subgraph 渲染流水线
+        TASK[合成任务] --&gt; QUEUE2[优先级队列]
+        QUEUE2 --&gt; SCHED2[调度器]
+        
+        SCHED2 --&gt;|付费用户| GPU_HIGH[GPU 高优先级池]
+        SCHED2 --&gt;|免费用户| GPU_LOW[GPU 低优先级池]
+        SCHED2 --&gt;|队列满| CPU_FALLBACK[CPU 降级处理]
+        
+        GPU_HIGH --&gt; RENDER1[L4 GPU 节点]
+        GPU_LOW --&gt; RENDER2[T4 GPU 节点]
+        CPU_FALLBACK --&gt; RENDER3[CPU 节点]
+        
+        RENDER1 --&gt;|NVENC| OUTPUT[输出文件]
+        RENDER2 --&gt;|NVENC| OUTPUT
+        RENDER3 --&gt;|软件编码| OUTPUT
+    end
+    
+    subgraph 加速效果
+        CPU[CPU 软件编码&lt;br/&gt;5分钟视频 ≈ 15分钟]
+        GPU[GPU 硬件编码&lt;br/&gt;5分钟视频 ≈ 90秒]
+    end
+</pre>
+<p><strong>FFmpeg GPU 加速命令</strong>：</p>
+<pre class="hljs"><code><span class="hljs-comment"># CPU 编码（V0.3 方案）</span>
+ffmpeg -i input.mp4 -c:v libx264 -preset medium output.mp4
+
+<span class="hljs-comment"># GPU 编码（V1.0 方案）</span>
+ffmpeg -i input.mp4 -c:v h264_nvenc -preset p4 -rc vbr -b:v 5M output.mp4
+</code></pre>
+<p><strong>性能对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">场景</th>
+<th style="text-align:left">CPU 编码</th>
+<th style="text-align:left">GPU 编码</th>
+<th style="text-align:left">加速比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">1 分钟视频</td>
+<td style="text-align:left">180 秒</td>
+<td style="text-align:left">15 秒</td>
+<td style="text-align:left">12x</td>
+</tr>
+<tr>
+<td style="text-align:left">5 分钟视频</td>
+<td style="text-align:left">900 秒</td>
+<td style="text-align:left">75 秒</td>
+<td style="text-align:left">12x</td>
+</tr>
+<tr>
+<td style="text-align:left">10 分钟视频</td>
+<td style="text-align:left">1800 秒</td>
+<td style="text-align:left">140 秒</td>
+<td style="text-align:left">13x</td>
+</tr>
+</tbody>
+</table>
+<h4>三、账号权限与多租户体系</h4>
+<p>V1.0 建立完整的用户管理和资源隔离体系。</p>
+<pre class="mermaid">graph TB
+    subgraph 用户管理
+        U[用户] --&gt;|注册/登录| AUTH2[认证服务]
+        AUTH2 --&gt;|OAuth| GOOGLE[Google]
+        AUTH2 --&gt;|OAuth| GITHUB[GitHub]
+        AUTH2 --&gt;|本地| LOCAL[邮箱+密码]
+    end
+    
+    subgraph 组织架构
+        U --&gt;|属于| ORG[组织/团队]
+        ORG --&gt;|包含| TEAM[项目组]
+        TEAM --&gt;|包含| MEMBER[成员]
+        MEMBER --&gt;|角色| ROLE[角色]
+    end
+    
+    subgraph 权限控制[RBAC 权限控制]
+        ROLE --&gt;|admin| P1[全部操作]
+        ROLE --&gt;|editor| P2[编辑+导出]
+        ROLE --&gt;|viewer| P3[仅查看]
+        ROLE --&gt;|billing| P4[配额管理]
+    end
+    
+    subgraph 资源隔离
+        ORG --&gt;|隔离| PROJECT[项目]
+        PROJECT --&gt;|隔离| ASSETS[素材]
+        PROJECT --&gt;|隔离| TIMELINE[时间线]
+        PROJECT --&gt;|隔离| OUTPUT[输出]
+    end
+</pre>
+<p><strong>权限矩阵</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">操作</th>
+<th style="text-align:left">Admin</th>
+<th style="text-align:left">Editor</th>
+<th style="text-align:left">Viewer</th>
+<th style="text-align:left">Billing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">上传素材</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+</tr>
+<tr>
+<td style="text-align:left">编辑时间线</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+</tr>
+<tr>
+<td style="text-align:left">导出视频</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+</tr>
+<tr>
+<td style="text-align:left">删除项目</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+</tr>
+<tr>
+<td style="text-align:left">管理成员</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+</tr>
+<tr>
+<td style="text-align:left">查看配额</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+</tr>
+<tr>
+<td style="text-align:left">修改配额</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">✅</td>
+</tr>
+<tr>
+<td style="text-align:left">API 调用</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">✅</td>
+<td style="text-align:left">❌</td>
+<td style="text-align:left">❌</td>
+</tr>
+</tbody>
+</table>
+<h4>四、用量配额与计费</h4>
+<pre class="mermaid">graph TB
+    subgraph 配额维度
+        Q1[视频存储容量&lt;br/&gt;免费: 5GB / 付费: 50GB+]
+        Q2[每月导出时长&lt;br/&gt;免费: 10分钟 / 付费: 不限]
+        Q3[并发任务数&lt;br/&gt;免费: 1 / 付费: 5+]
+        Q4[API 调用次数&lt;br/&gt;免费: 100次/月 / 付费: 不限]
+        Q5[团队成员数&lt;br/&gt;免费: 1 / 付费: 10+]
+        Q6[导出分辨率&lt;br/&gt;免费: 720p / 付费: 1080p+4K]
+    end
+    
+    subgraph 计费策略
+        TIER1[免费版&lt;br/&gt;基础功能+配额限制]
+        TIER2[专业版&lt;br/&gt;$29/月&lt;br/&gt;全功能+更高配额]
+        TIER3[团队版&lt;br/&gt;$99/月&lt;br/&gt;10人+管理功能]
+        TIER4[企业版&lt;br/&gt;定制报价&lt;br/&gt;私有部署+SLA]
+    end
+    
+    subgraph 配额检查
+        CHECK[每次操作检查配额]
+        CHECK --&gt;|充足| ALLOW[允许执行]
+        CHECK --&gt;|不足| DENY[拒绝+提示升级]
+        CHECK --&gt;|接近上限| WARN[警告通知]
+    end
+    
+    Q1 &amp; Q2 &amp; Q3 &amp; Q4 &amp; Q5 &amp; Q6 --&gt; TIER1 &amp; TIER2 &amp; TIER3 &amp; TIER4
+    TIER1 &amp; TIER2 &amp; TIER3 &amp; TIER4 --&gt; CHECK
+</pre>
+<h3>新增功能清单</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模块</th>
+<th style="text-align:left">功能</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">部署</td>
+<td style="text-align:left">Kubernetes Helm Charts</td>
+<td style="text-align:left">云原生部署标准</td>
+</tr>
+<tr>
+<td style="text-align:left">部署</td>
+<td style="text-align:left">水平自动扩缩容</td>
+<td style="text-align:left">根据负载动态调整</td>
+</tr>
+<tr>
+<td style="text-align:left">部署</td>
+<td style="text-align:left">蓝绿部署</td>
+<td style="text-align:left">零停机更新</td>
+</tr>
+<tr>
+<td style="text-align:left">性能</td>
+<td style="text-align:left">GPU 硬件加速渲染</td>
+<td style="text-align:left">L4/T4 + NVENC</td>
+</tr>
+<tr>
+<td style="text-align:left">性能</td>
+<td style="text-align:left">任务优先级队列</td>
+<td style="text-align:left">付费用户优先</td>
+</tr>
+<tr>
+<td style="text-align:left">账号</td>
+<td style="text-align:left">OAuth2.0/OIDC</td>
+<td style="text-align:left">Google/GitHub/SSO</td>
+</tr>
+<tr>
+<td style="text-align:left">账号</td>
+<td style="text-align:left">RBAC 权限模型</td>
+<td style="text-align:left">Admin/Editor/Viewer/Billing</td>
+</tr>
+<tr>
+<td style="text-align:left">账号</td>
+<td style="text-align:left">多组织隔离</td>
+<td style="text-align:left">企业级多租户</td>
+</tr>
+<tr>
+<td style="text-align:left">计费</td>
+<td style="text-align:left">用量配额管理</td>
+<td style="text-align:left">多维度配额控制</td>
+</tr>
+<tr>
+<td style="text-align:left">计费</td>
+<td style="text-align:left">订阅计费</td>
+<td style="text-align:left">Stripe/Paddle 集成</td>
+</tr>
+<tr>
+<td style="text-align:left">API</td>
+<td style="text-align:left">RESTful API</td>
+<td style="text-align:left">全部功能开放</td>
+</tr>
+<tr>
+<td style="text-align:left">API</td>
+<td style="text-align:left">Webhook 回调</td>
+<td style="text-align:left">异步事件通知</td>
+</tr>
+<tr>
+<td style="text-align:left">API</td>
+<td style="text-align:left">速率限制</td>
+<td style="text-align:left">防滥用保护</td>
+</tr>
+<tr>
+<td style="text-align:left">API</td>
+<td style="text-align:left">API Key 管理</td>
+<td style="text-align:left">多密钥支持</td>
+</tr>
+<tr>
+<td style="text-align:left">API</td>
+<td style="text-align:left">Python/JS SDK</td>
+<td style="text-align:left">官方开发套件</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测</td>
+<td style="text-align:left">APM 链路追踪</td>
+<td style="text-align:left">Jaeger 分布式追踪</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测</td>
+<td style="text-align:left">业务指标监控</td>
+<td style="text-align:left">Prometheus + Grafana</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测</td>
+<td style="text-align:left">智能告警</td>
+<td style="text-align:left">异常自动通知</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测</td>
+<td style="text-align:left">审计日志</td>
+<td style="text-align:left">所有操作可追溯</td>
+</tr>
+</tbody>
+</table>
+<h3>关键挑战与应对</h3>
+<pre class="mermaid">graph LR
+    subgraph V1.0挑战[V1.0 核心挑战]
+        C15[多租户数据隔离]
+        C16[GPU 资源调度]
+        C17[API 限流与防滥用]
+        C18[配额准确性问题]
+        C19[大文件上传中断]
+        C20[跨可用区容灾]
+    end
+    
+    subgraph V1.0应对[V1.0 应对策略]
+        S15[Schema 隔离 + RLS 行级安全]
+        S16[多级优先级队列 + 自动扩缩容]
+        S17[令牌桶算法 + 用户/IP 双重限流]
+        S18[原子操作 + 定期对账]
+        S19[分片上传 + 断点续传]
+        S20[主从复制 + 自动故障转移]
+    end
+    
+    C15 --&gt; S15
+    C16 --&gt; S16
+    C17 --&gt; S17
+    C18 --&gt; S18
+    C19 --&gt; S19
+    C20 --&gt; S20
+</pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">挑战</th>
+<th style="text-align:left">描述</th>
+<th style="text-align:left">应对策略</th>
+<th style="text-align:left">验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>多租户数据隔离</strong></td>
+<td style="text-align:left">不同组织的数据和资源需严格隔离</td>
+<td style="text-align:left">PostgreSQL RLS 行级安全 + Schema 隔离</td>
+<td style="text-align:left">渗透测试通过</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>GPU 资源调度</strong></td>
+<td style="text-align:left">付费/免费用户需差异化 QoS</td>
+<td style="text-align:left">多级优先级队列 + 自动扩缩容 + 超时回收（5 分钟）</td>
+<td style="text-align:left">付费用户任务延迟 &lt; 30 秒</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>API 限流与防滥用</strong></td>
+<td style="text-align:left">恶意高频请求影响服务稳定性</td>
+<td style="text-align:left">令牌桶算法（每用户 100/min）+ IP 限流（1000/min）</td>
+<td style="text-align:left">无服务降级事件</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>配额准确性问题</strong></td>
+<td style="text-align:left">并发操作可能导致配额计数不准</td>
+<td style="text-align:left">数据库原子操作 + 每日对账修复</td>
+<td style="text-align:left">配额误差 &lt; 0.1%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>大文件上传中断</strong></td>
+<td style="text-align:left">网络波动导致上传失败</td>
+<td style="text-align:left">分片上传（10MB/片）+ 断点续传</td>
+<td style="text-align:left">成功率 &gt; 99.5%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>跨可用区容灾</strong></td>
+<td style="text-align:left">单可用区故障导致服务中断</td>
+<td style="text-align:left">主从复制（同步延迟 &lt; 1 秒）+ 自动故障切换（&lt; 5 分钟）</td>
+<td style="text-align:left">RTO &lt; 5 分钟</td>
+</tr>
+</tbody>
+</table>
+<h3>交付标准</h3>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p>支持 500 个并发用户，API 响应 P95 &lt; 200ms</p>
+</li>
+<li class="lvl-2">
+<p>GPU 加速下 5 分钟视频渲染 &lt; 2 分钟</p>
+</li>
+<li class="lvl-2">
+<p>多租户数据完全隔离，互不可见</p>
+</li>
+<li class="lvl-2">
+<p>配额系统准确，误差 &lt; 0.1%</p>
+</li>
+<li class="lvl-2">
+<p>API 文档完整，通过 OpenAPI 3.0 生成</p>
+</li>
+<li class="lvl-2">
+<p>Python SDK 和 JavaScript SDK 通过单元测试</p>
+</li>
+<li class="lvl-2">
+<p>99.9% 可用性 SLA</p>
+</li>
+</ul>
+<hr>
+<h2>V2.0 — 生态开放：插件市场</h2>
+<h3>版本目标</h3>
+<p>在 V1.0 的稳定生产基础上，V2.0 将星型架构中&quot;能力注册&quot;这一核心机制对外公开，建立第三方开发者生态。V2.0 的目标是让 PenClip 从一个工具变成一个平台。</p>
+<h3>架构全景图</h3>
+<pre class="mermaid">graph TB
+    subgraph 插件开发者生态
+        DEV[第三方开发者] --&gt; SDK2[插件开发 SDK]
+        SDK2 --&gt;|开发| PLUGIN_CODE[插件代码]
+        PLUGIN_CODE --&gt;|打包| PLUGIN_PKG[插件包]
+        PLUGIN_PKG --&gt;|上传| MARKETPLACE[插件市场]
+    end
+
+    subgraph 插件市场平台
+        MARKETPLACE --&gt;|展示| STORE[插件商店]
+        MARKETPLACE --&gt;|审核| REVIEW[审核流程]
+        MARKETPLACE --&gt;|分发| DIST[插件分发 CDN]
+        MARKETPLACE --&gt;|计费| BILLING2[插件付费]
+    end
+
+    subgraph 核心系统
+        CENTER2[指令解析中枢]
+        REG2[能力注册表 - 扩展]
+        PLUGIN_MGR2[插件管理器]
+        
+        REG2 --&gt;|内部| INTERNAL2[内置智能体]
+        REG2 --&gt;|外部| EXT_PLUGINS[第三方插件]
+        
+        PLUGIN_MGR2 --&gt;|加载| EXT_PLUGINS
+        PLUGIN_MGR2 --&gt;|沙箱| SANDBOX2[Docker 沙箱池]
+        PLUGIN_MGR2 --&gt;|版本| VERSION_MGR[版本管理器]
+    end
+
+    subgraph 插件运行时
+        SANDBOX2 --&gt;|运行| EXT_PLUGINS
+        EXT_PLUGINS --&gt;|调用| API_GATEWAY[受限 API]
+        EXT_PLUGINS --&gt;|访问| SANDBOX_FS[沙箱文件系统]
+    end
+
+    subgraph 社区
+        FORUM[开发者论坛]
+        DOCS[文档中心]
+        TEMPLATES[模板库]
+        SHOWCASE[作品展示]
+    end
+
+    MARKETPLACE --&gt;|安装| PLUGIN_MGR2
+    DIST --&gt;|下载| PLUGIN_MGR2
+    REVIEW --&gt;|批准| MARKETPLACE
+</pre>
+<h3>核心能力详解</h3>
+<h4>一、插件开发 SDK</h4>
+<p>V2.0 提供完整的插件开发工具包，将 V0.1 就存在的内部能力注册接口规范化、文档化、安全化后对外开放。</p>
+<p><strong>SDK 架构</strong>：</p>
+<pre class="mermaid">graph TB
+    subgraph SDK 组件
+        BASE[BasePlugin 基类]
+        DECOR[装饰器工具]
+        VALID[Schema 验证]
+        TEST[测试框架]
+        CLI[命令行工具]
+        TEMPLATE[项目模板]
+    end
+    
+    subgraph 开发者体验
+        INIT[PenClip init 创建项目]
+        DEV[本地开发热加载]
+        DEBUG[调试模式]
+        TEST2[单元测试 + Mock]
+        PACK[PenClip pack 打包]
+        UPLOAD[PenClip upload 发布]
+    end
+    
+    subgraph 插件能力范围
+        ANALYZE[分析能力&lt;br/&gt;自定义视频分析]
+        MATCH[匹配能力&lt;br/&gt;自定义检索逻辑]
+        EFFECT[特效能力&lt;br/&gt;自定义转场/滤镜]
+        EXPORT[导出能力&lt;br/&gt;自定义输出格式]
+        WORKFLOW[工作流能力&lt;br/&gt;自定义编排逻辑]
+        UI[UI 能力&lt;br/&gt;自定义界面组件]
+    end
+    
+    BASE --&gt; ANALYZE &amp; MATCH &amp; EFFECT &amp; EXPORT &amp; WORKFLOW &amp; UI
+    TEMPLATE --&gt; INIT
+    CLI --&gt; INIT &amp; DEBUG &amp; PACK &amp; UPLOAD
+    TEST --&gt; TEST2
+</pre>
+<p><strong>插件开发示例</strong>：</p>
+<pre class="hljs"><code><span class="hljs-comment"># 一个完整的插件示例（概念代码）</span>
+<span class="hljs-keyword">from</span> PenClip.sdk <span class="hljs-keyword">import</span> BasePlugin, Capability, VideoFrame, Result
+<span class="hljs-keyword">from</span> PenClip.sdk.types <span class="hljs-keyword">import</span> Intent, RiskLevel
+<span class="hljs-keyword">import</span> cv2
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">CinematicColorPlugin</span>(<span class="hljs-title class_ inherited__">BasePlugin</span>):
+    <span class="hljs-string">&quot;&quot;&quot;电影级调色插件 - 让视频片段具有电影质感&quot;&quot;&quot;</span>
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">declare</span>(<span class="hljs-params">self</span>) -&gt; <span class="hljs-built_in">list</span>[Capability]:
+        <span class="hljs-keyword">return</span> [
+            Capability(
+                name=<span class="hljs-string">&quot;cinematic_color_grading&quot;</span>,
+                intents=[Intent.EFFECT_ADD_FILTER],
+                description=<span class="hljs-string">&quot;应用电影级调色 LUT&quot;</span>,
+                parameters={
+                    <span class="hljs-string">&quot;slot_id&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>, <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;要调色的槽位&quot;</span>},
+                    <span class="hljs-string">&quot;style&quot;</span>: {
+                        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>, 
+                        <span class="hljs-string">&quot;enum&quot;</span>: [<span class="hljs-string">&quot;warm&quot;</span>, <span class="hljs-string">&quot;cool&quot;</span>, <span class="hljs-string">&quot;vintage&quot;</span>, <span class="hljs-string">&quot;neon&quot;</span>],
+                        <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;调色风格&quot;</span>
+                    },
+                    <span class="hljs-string">&quot;intensity&quot;</span>: {
+                        <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;number&quot;</span>,
+                        <span class="hljs-string">&quot;minimum&quot;</span>: <span class="hljs-number">0</span>,
+                        <span class="hljs-string">&quot;maximum&quot;</span>: <span class="hljs-number">1</span>,
+                        <span class="hljs-string">&quot;default&quot;</span>: <span class="hljs-number">0.7</span>,
+                        <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;效果强度&quot;</span>
+                    }
+                },
+                output_schema={
+                    <span class="hljs-string">&quot;modified_slot&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>},
+                    <span class="hljs-string">&quot;preview_url&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>}
+                },
+                risk_level=RiskLevel.LOW
+            )
+        ]
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">execute</span>(<span class="hljs-params">self, params: <span class="hljs-built_in">dict</span>, context: <span class="hljs-built_in">dict</span></span>) -&gt; Result:
+        <span class="hljs-comment"># 获取槽位中的视频帧</span>
+        slot_id = params[<span class="hljs-string">&quot;slot_id&quot;</span>]
+        frames = <span class="hljs-variable language_">self</span>.get_slot_frames(slot_id)
+        
+        <span class="hljs-comment"># 应用调色</span>
+        style = params.get(<span class="hljs-string">&quot;style&quot;</span>, <span class="hljs-string">&quot;warm&quot;</span>)
+        intensity = params.get(<span class="hljs-string">&quot;intensity&quot;</span>, <span class="hljs-number">0.7</span>)
+        
+        styled_frames = []
+        <span class="hljs-keyword">for</span> frame <span class="hljs-keyword">in</span> frames:
+            <span class="hljs-comment"># 应用 LUT 或颜色变换</span>
+            transformed = <span class="hljs-variable language_">self</span>.apply_lut(frame, style, intensity)
+            styled_frames.append(transformed)
+        
+        <span class="hljs-comment"># 更新槽位</span>
+        <span class="hljs-variable language_">self</span>.update_slot_frames(slot_id, styled_frames)
+        
+        <span class="hljs-keyword">return</span> Result(
+            success=<span class="hljs-literal">True</span>,
+            data={
+                <span class="hljs-string">&quot;modified_slot&quot;</span>: slot_id,
+                <span class="hljs-string">&quot;preview_url&quot;</span>: <span class="hljs-variable language_">self</span>.generate_preview(styled_frames)
+            },
+            message=<span class="hljs-string">f&quot;已应用 <span class="hljs-subst">{style}</span> 风格调色&quot;</span>
+        )
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">apply_lut</span>(<span class="hljs-params">self, frame: np.ndarray, style: <span class="hljs-built_in">str</span>, intensity: <span class="hljs-built_in">float</span></span>) -&gt; np.ndarray:
+        <span class="hljs-comment"># 实际 LUT 应用逻辑</span>
+        lut = <span class="hljs-variable language_">self</span>.load_lut(style)
+        <span class="hljs-keyword">return</span> cv2.LUT(frame, lut * intensity + (<span class="hljs-number">1</span> - intensity) * np.eye(<span class="hljs-number">3</span>))
+</code></pre>
+<p><strong>SDK 核心接口</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">接口</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><code>BasePlugin</code></td>
+<td style="text-align:left">所有插件的基类，定义生命周期</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>Capability</code></td>
+<td style="text-align:left">能力声明数据结构</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>@requires_capability</code></td>
+<td style="text-align:left">装饰器，声明需要的其他能力</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>@rate_limited</code></td>
+<td style="text-align:left">装饰器，设置执行频率限制</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>VideoFrame</code></td>
+<td style="text-align:left">视频帧的数据抽象</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>TimelineContext</code></td>
+<td style="text-align:left">时间线上下文访问接口</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>ResourceLimits</code></td>
+<td style="text-align:left">资源使用限制配置</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>TestHarness</code></td>
+<td style="text-align:left">插件测试框架</td>
+</tr>
+</tbody>
+</table>
+<h4>二、插件市场平台</h4>
+<p>插件市场是 V2.0 的核心平台组件，负责插件的发现、分发和生命周期管理。</p>
+<pre class="mermaid">graph TB
+    subgraph 市场前端
+        STORE_UI[插件商店页面]
+        SEARCH[搜索/筛选]
+        DETAIL[插件详情页]
+        REVIEWS[评分/评论]
+        INSTALL[一键安装]
+    end
+    
+    subgraph 市场后端
+        CATALOG[插件目录服务]
+        METADATA[元数据管理]
+        ANALYTICS[下载/使用统计]
+        PAYMENT[付费插件支付]
+        LICENSE[许可证管理]
+    end
+    
+    subgraph 审核流程
+        SUBMIT[开发者提交]
+        SCAN[自动安全扫描]
+        SANDBOX3[沙箱测试]
+        MANUAL2[人工审核]
+        PUBLISH[发布上架]
+    end
+    
+    subgraph 更新管理
+        VERSION2[版本发布]
+        CHANGELOG[变更日志]
+        UPDATE_CHECK[自动更新检查]
+        COMPAT[兼容性检查]
+    end
+    
+    STORE_UI --&gt; CATALOG
+    SEARCH --&gt; METADATA
+    INSTALL --&gt; LICENSE
+    SUBMIT --&gt; SCAN --&gt; SANDBOX3 --&gt; MANUAL2 --&gt; PUBLISH
+    PUBLISH --&gt; CATALOG
+    VERSION2 --&gt; UPDATE_CHECK
+    UPDATE_CHECK --&gt; COMPAT
+</pre>
+<p><strong>插件元数据模型</strong>：</p>
+<pre class="hljs"><code><span class="hljs-keyword">class</span> <span class="hljs-title class_">PluginMetadata</span>:
+    <span class="hljs-comment"># 基本信息</span>
+    plugin_id: <span class="hljs-built_in">str</span>
+    name: <span class="hljs-built_in">str</span>
+    description: <span class="hljs-built_in">str</span>
+    version: <span class="hljs-built_in">str</span>
+    author: <span class="hljs-built_in">str</span>
+    author_url: <span class="hljs-type">Optional</span>[<span class="hljs-built_in">str</span>]
+    
+    <span class="hljs-comment"># 能力声明</span>
+    capabilities: <span class="hljs-built_in">list</span>[Capability]
+    requires_api_version: <span class="hljs-built_in">str</span>
+    
+    <span class="hljs-comment"># 兼容性</span>
+    compatible_versions: <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]
+    min_PenClip_version: <span class="hljs-built_in">str</span>
+    
+    <span class="hljs-comment"># 依赖</span>
+    dependencies: <span class="hljs-built_in">list</span>[PluginDependency]
+    system_requirements: SystemRequirements
+    
+    <span class="hljs-comment"># 发布信息</span>
+    release_date: datetime
+    last_updated: datetime
+    downloads: <span class="hljs-built_in">int</span>
+    rating: <span class="hljs-built_in">float</span>
+    
+    <span class="hljs-comment"># 定价</span>
+    pricing: <span class="hljs-type">Literal</span>[<span class="hljs-string">&quot;free&quot;</span>, <span class="hljs-string">&quot;paid&quot;</span>, <span class="hljs-string">&quot;subscription&quot;</span>]
+    price: <span class="hljs-type">Optional</span>[<span class="hljs-built_in">float</span>]
+    trial_period_days: <span class="hljs-type">Optional</span>[<span class="hljs-built_in">int</span>]
+    
+    <span class="hljs-comment"># 安全</span>
+    permissions: <span class="hljs-built_in">list</span>[Permission]
+    security_audit_date: datetime
+    security_level: <span class="hljs-type">Literal</span>[<span class="hljs-string">&quot;verified&quot;</span>, <span class="hljs-string">&quot;community&quot;</span>, <span class="hljs-string">&quot;sandboxed&quot;</span>]
+</code></pre>
+<p><strong>市场分类体系</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">分类</th>
+<th style="text-align:left">说明</th>
+<th style="text-align:left">示例插件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">特效与滤镜</td>
+<td style="text-align:left">视觉增强插件</td>
+<td style="text-align:left">电影调色、复古胶片、美颜滤镜</td>
+</tr>
+<tr>
+<td style="text-align:left">转场效果</td>
+<td style="text-align:left">自定义转场</td>
+<td style="text-align:left">3D 翻转、粒子消散、水墨渲染</td>
+</tr>
+<tr>
+<td style="text-align:left">字幕与文本</td>
+<td style="text-align:left">文字处理插件</td>
+<td style="text-align:left">AI 字幕生成、动态字幕、多语言翻译</td>
+</tr>
+<tr>
+<td style="text-align:left">音频处理</td>
+<td style="text-align:left">音频增强插件</td>
+<td style="text-align:left">降噪、变声、自动配乐</td>
+</tr>
+<tr>
+<td style="text-align:left">素材增强</td>
+<td style="text-align:left">素材生成插件</td>
+<td style="text-align:left">AI 生成 B-roll、风格迁移</td>
+</tr>
+<tr>
+<td style="text-align:left">工作流模板</td>
+<td style="text-align:left">行业模板</td>
+<td style="text-align:left">电商视频模板、教育视频模板</td>
+</tr>
+<tr>
+<td style="text-align:left">导出格式</td>
+<td style="text-align:left">自定义导出</td>
+<td style="text-align:left">GIF 制作、多格式转换</td>
+</tr>
+</tbody>
+</table>
+<h4>三、插件安全沙箱</h4>
+<p>插件安全是生态开放的生命线。V2.0 建立了多层安全防护体系。</p>
+<pre class="mermaid">graph TB
+    subgraph 安全层级[多层安全防护]
+        L1[代码静态扫描&lt;br/&gt;AST 分析 / 模式匹配]
+        L2[Docker 容器隔离&lt;br/&gt;资源限制 / 网络隔离]
+        L3[权限最小化&lt;br/&gt;按需授权 / 细粒度控制]
+        L4[运行时监控&lt;br/&gt;异常检测 / 行为分析]
+        L5[人工审计&lt;br/&gt;代码审查 / 信誉机制]
+    end
+    
+    subgraph 沙箱配置
+        CPU_LIMIT[CPU: 1 核限制]
+        MEM_LIMIT[内存: 512MB 限制]
+        TIME_LIMIT[执行超时: 30 秒]
+        NET_POLICY[网络: 仅内网 API]
+        FS_POLICY[文件系统: 隔离目录]
+    end
+    
+    subgraph 权限模型
+        P1[READ_METADATA&lt;br/&gt;读取素材元数据]
+        P2[READ_FRAMES&lt;br/&gt;读取视频帧]
+        P3[WRITE_TIMELINE&lt;br/&gt;修改时间线]
+        P4[WRITE_OUTPUT&lt;br/&gt;生成输出文件]
+        P5[CALL_EXTERNAL&lt;br/&gt;调用外部服务]
+    end
+    
+    L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 --&gt; PLUGIN_EXEC[插件执行]
+    PLUGIN_EXEC --&gt; CPU_LIMIT &amp; MEM_LIMIT &amp; TIME_LIMIT
+    PLUGIN_EXEC --&gt; NET_POLICY &amp; FS_POLICY
+    PLUGIN_EXEC --&gt; P1 &amp; P2 &amp; P3 &amp; P4 &amp; P5
+</pre>
+<p><strong>插件权限声明与授权</strong>：</p>
+<pre class="hljs"><code><span class="hljs-comment"># 插件权限声明</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">PluginPermissions</span>:
+    <span class="hljs-comment"># 开发者声明需要的权限</span>
+    required: <span class="hljs-built_in">list</span>[Permission] = [
+        Permission.READ_METADATA,
+        Permission.READ_FRAMES
+    ]
+    
+    <span class="hljs-comment"># 可选权限（用户可选择是否授权）</span>
+    optional: <span class="hljs-built_in">list</span>[Permission] = [
+        Permission.WRITE_TIMELINE,
+        Permission.CALL_EXTERNAL
+    ]
+    
+<span class="hljs-comment"># 用户安装时审批</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">install_plugin</span>(<span class="hljs-params">plugin_id: <span class="hljs-built_in">str</span>, granted_permissions: <span class="hljs-built_in">list</span>[Permission]</span>):
+    required = get_required_permissions(plugin_id)
+    <span class="hljs-keyword">for</span> perm <span class="hljs-keyword">in</span> required:
+        <span class="hljs-keyword">if</span> perm <span class="hljs-keyword">not</span> <span class="hljs-keyword">in</span> granted_permissions:
+            <span class="hljs-keyword">raise</span> PermissionDenied(<span class="hljs-string">f&quot;缺少必要权限: <span class="hljs-subst">{perm}</span>&quot;</span>)
+    <span class="hljs-comment"># 存储授权配置</span>
+    save_permission_grant(plugin_id, granted_permissions)
+</code></pre>
+<h4>四、版本管理与兼容性</h4>
+<pre class="mermaid">graph TB
+    subgraph 版本管理
+        SEMVER[语义化版本号 v1.2.3]
+        MAJOR[主版本: 不兼容的 API 变更]
+        MINOR[次版本: 向后兼容的功能新增]
+        PATCH[补丁版本: 向后兼容的问题修复]
+    end
+    
+    subgraph 核心 API 版本
+        CORE_V1[核心 API v1]
+        CORE_V2[核心 API v2]
+        CORE_V3[核心 API v3]
+        CORE_V1 --&gt;|兼容层| CORE_V2
+        CORE_V2 --&gt;|兼容层| CORE_V3
+    end
+    
+    subgraph 插件兼容性策略
+        STRICT[严格匹配: 必须同版本]
+        RANGE[版本范围: ^1.0.0]
+        FLEXIBLE[灵活匹配: 运行时检查]
+        LEGACY[遗留支持: 适配器模式]
+    end
+    
+    subgraph 升级策略
+        CANARY[金丝雀发布: 1% 用户]
+        GRADUAL[灰度升级: 逐渐扩大]
+        ROLLBACK[一键回滚: 发现问题立即恢复]
+        FORCED[强制升级: 安全漏洞修复]
+    end
+</pre>
+<h3>新增功能清单</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模块</th>
+<th style="text-align:left">功能</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">SDK</td>
+<td style="text-align:left">插件开发基类</td>
+<td style="text-align:left">BasePlugin + 能力声明</td>
+</tr>
+<tr>
+<td style="text-align:left">SDK</td>
+<td style="text-align:left">命令行工具</td>
+<td style="text-align:left">创建/打包/测试/发布</td>
+</tr>
+<tr>
+<td style="text-align:left">SDK</td>
+<td style="text-align:left">测试框架</td>
+<td style="text-align:left">单元测试 + Mock 环境</td>
+</tr>
+<tr>
+<td style="text-align:left">SDK</td>
+<td style="text-align:left">调试模式</td>
+<td style="text-align:left">本地热加载 + 日志输出</td>
+</tr>
+<tr>
+<td style="text-align:left">市场</td>
+<td style="text-align:left">插件商店</td>
+<td style="text-align:left">浏览/搜索/安装</td>
+</tr>
+<tr>
+<td style="text-align:left">市场</td>
+<td style="text-align:left">审核流程</td>
+<td style="text-align:left">自动扫描 + 人工审核</td>
+</tr>
+<tr>
+<td style="text-align:left">市场</td>
+<td style="text-align:left">评级评论</td>
+<td style="text-align:left">用户评分 + 评论区</td>
+</tr>
+<tr>
+<td style="text-align:left">市场</td>
+<td style="text-align:left">付费插件</td>
+<td style="text-align:left">Stripe 支付集成</td>
+</tr>
+<tr>
+<td style="text-align:left">沙箱</td>
+<td style="text-align:left">Docker 隔离</td>
+<td style="text-align:left">资源限制 + 网络隔离</td>
+</tr>
+<tr>
+<td style="text-align:left">沙箱</td>
+<td style="text-align:left">权限模型</td>
+<td style="text-align:left">细粒度权限声明与授权</td>
+</tr>
+<tr>
+<td style="text-align:left">沙箱</td>
+<td style="text-align:left">运行时监控</td>
+<td style="text-align:left">异常检测 + 行为分析</td>
+</tr>
+<tr>
+<td style="text-align:left">版本</td>
+<td style="text-align:left">语义化版本</td>
+<td style="text-align:left">插件版本管理</td>
+</tr>
+<tr>
+<td style="text-align:left">版本</td>
+<td style="text-align:left">兼容性检查</td>
+<td style="text-align:left">加载时自动检查</td>
+</tr>
+<tr>
+<td style="text-align:left">版本</td>
+<td style="text-align:left">灰度升级</td>
+<td style="text-align:left">渐进式发布</td>
+</tr>
+<tr>
+<td style="text-align:left">运营</td>
+<td style="text-align:left">开发者论坛</td>
+<td style="text-align:left">技术交流</td>
+</tr>
+<tr>
+<td style="text-align:left">运营</td>
+<td style="text-align:left">文档中心</td>
+<td style="text-align:left">API 文档 + 教程</td>
+</tr>
+<tr>
+<td style="text-align:left">运营</td>
+<td style="text-align:left">模板库</td>
+<td style="text-align:left">示例插件模板</td>
+</tr>
+<tr>
+<td style="text-align:left">运营</td>
+<td style="text-align:left">展示区</td>
+<td style="text-align:left">优秀插件展示</td>
+</tr>
+</tbody>
+</table>
+<h3>关键挑战与应对</h3>
+<pre class="mermaid">graph LR
+    subgraph V2.0挑战[V2.0 核心挑战]
+        C21[恶意插件安全威胁]
+        C22[插件质量参差不齐]
+        C23[插件兼容性维护]
+        C24[社区冷启动]
+        C25[插件依赖冲突]
+        C26[插件 API 滥用]
+    end
+    
+    subgraph V2.0应对[V2.0 应对策略]
+        S21[Docker 沙箱 + 权限最小化 + 代码审计]
+        S22[审核分级 + 用户评分系统]
+        S23[语义化版本 + 兼容层 + 灰度升级]
+        S24[官方示范插件 + 开发者激励]
+        S25[依赖隔离 + 版本锁定]
+        S26[配额 + 速率限制 + 行为监控]
+    end
+    
+    C21 --&gt; S21
+    C22 --&gt; S22
+    C23 --&gt; S23
+    C24 --&gt; S24
+    C25 --&gt; S25
+    C26 --&gt; S26
+</pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">挑战</th>
+<th style="text-align:left">描述</th>
+<th style="text-align:left">应对策略</th>
+<th style="text-align:left">验证方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>恶意插件安全威胁</strong></td>
+<td style="text-align:left">插件可能包含恶意代码</td>
+<td style="text-align:left">Docker 沙箱隔离 + 权限最小化 + 自动安全扫描 + 人工审计</td>
+<td style="text-align:left">无沙箱逃逸事件</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>插件质量参差不齐</strong></td>
+<td style="text-align:left">低质量插件影响用户体验</td>
+<td style="text-align:left">审核三级制（验证/社区/沙箱）+ 用户评分系统</td>
+<td style="text-align:left">平均评分 &gt; 3.5/5</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>插件兼容性维护</strong></td>
+<td style="text-align:left">核心升级导致插件失效</td>
+<td style="text-align:left">语义化版本（SemVer）+ 兼容层适配旧版本 + 灰度升级</td>
+<td style="text-align:left">兼容性保持率 &gt; 95%</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>社区冷启动</strong></td>
+<td style="text-align:left">缺乏开发者关注</td>
+<td style="text-align:left">官方开发 5-10 个示范插件 + 开发者激励计划（收益分成）</td>
+<td style="text-align:left">首月 50 名开发者</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>插件依赖冲突</strong></td>
+<td style="text-align:left">多个插件依赖不同版本</td>
+<td style="text-align:left">依赖隔离（虚拟环境）+ 版本锁定 + 冲突检测</td>
+<td style="text-align:left">无依赖冲突报错</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>插件 API 滥用</strong></td>
+<td style="text-align:left">插件调用消耗系统资源</td>
+<td style="text-align:left">插件级配额 + 速率限制 + 异常行为监控</td>
+<td style="text-align:left">单插件 CPU &lt; 5%</td>
+</tr>
+</tbody>
+</table>
+<h3>交付标准</h3>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p>2 个官方示范插件（含完整源码）</p>
+</li>
+<li class="lvl-2">
+<p>5 个第三方社区插件上架</p>
+</li>
+<li class="lvl-2">
+<p>插件 SDK 文档完整（50+ 页）</p>
+</li>
+<li class="lvl-2">
+<p>插件开发到上架全流程 &lt; 1 天（审核除外）</p>
+</li>
+<li class="lvl-2">
+<p>插件安全扫描通过率 &gt; 99%</p>
+</li>
+<li class="lvl-2">
+<p>沙箱环境隔离有效性 100%（无逃逸案例）</p>
+</li>
+<li class="lvl-2">
+<p>开发者论坛月活 &gt; 100 人</p>
+</li>
+</ul>
+<hr>
+<h2>版本对比总览</h2>
+<pre class="mermaid">graph TB
+    subgraph V0.1[V0.1 功能覆盖]
+        A1[视频上传] --&gt; A2[场景分割]
+        A2 --&gt; A3[CLIP标注]
+        A3 --&gt; A4[关键词匹配]
+        A4 --&gt; A5[片段拼接]
+        A5 --&gt; A6[控制台输出]
+    end
+    
+    subgraph V0.2[V0.2 新增]
+        B1[LLM解析] --&gt; B2[向量匹配]
+        B2 --&gt; B3[多候选推荐]
+        B3 --&gt; B4[多转场]
+        B4 --&gt; B5[背景音乐]
+        B5 --&gt; B6[项目持久化]
+    end
+    
+    subgraph V0.3[V0.3 新增]
+        C1[Web可视化] --&gt; C2[故事板拖拽]
+        C2 --&gt; C3[视频预览]
+        C3 --&gt; C4[实时协作]
+        C4 --&gt; C5[乐观更新]
+    end
+    
+    subgraph V1.0[V1.0 新增]
+        D1[GPU加速] --&gt; D2[多租户]
+        D2 --&gt; D3[配额计费]
+        D3 --&gt; D4[REST API]
+        D4 --&gt; D5[Webhook]
+    end
+    
+    subgraph V2.0[V2.0 新增]
+        E1[插件SDK] --&gt; E2[插件市场]
+        E2 --&gt; E3[沙箱安全]
+        E3 --&gt; E4[版本管理]
+        E4 --&gt; E5[开发者社区]
+    end
+    
+    V0.1 --&gt; V0.2 --&gt; V0.3 --&gt; V1.0 --&gt; V2.0
+</pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">维度</th>
+<th style="text-align:left">V0.1 MVP</th>
+<th style="text-align:left">V0.2 智能增强</th>
+<th style="text-align:left">V0.3 Web UI</th>
+<th style="text-align:left">V1.0 生产就绪</th>
+<th style="text-align:left">V2.0 生态开放</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>版本代号</strong></td>
+<td style="text-align:left">“星型骨架”</td>
+<td style="text-align:left">“语义理解”</td>
+<td style="text-align:left">“可视化协作”</td>
+<td style="text-align:left">“企业级服务”</td>
+<td style="text-align:left">“平台化”</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>核心目标</strong></td>
+<td style="text-align:left">验证技术闭环</td>
+<td style="text-align:left">自然语言交互</td>
+<td style="text-align:left">可视化编辑体验</td>
+<td style="text-align:left">规模化可靠服务</td>
+<td style="text-align:left">建立开发者生态</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>目标用户</strong></td>
+<td style="text-align:left">开发者团队</td>
+<td style="text-align:left">早期体验者</td>
+<td style="text-align:left">视频爱好者</td>
+<td style="text-align:left">企业/付费客户</td>
+<td style="text-align:left">第三方开发者</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>顶层架构</strong></td>
+<td style="text-align:left">星型中枢</td>
+<td style="text-align:left">星型中枢</td>
+<td style="text-align:left">星型中枢</td>
+<td style="text-align:left">星型中枢</td>
+<td style="text-align:left">星型中枢</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>能力注册</strong></td>
+<td style="text-align:left">内部注册</td>
+<td style="text-align:left">内部注册</td>
+<td style="text-align:left">内部注册</td>
+<td style="text-align:left">API 对外</td>
+<td style="text-align:left">插件 SDK</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>智能体数量</strong></td>
+<td style="text-align:left">3 个核心</td>
+<td style="text-align:left">4 个核心</td>
+<td style="text-align:left">4 个核心</td>
+<td style="text-align:left">4+ API 扩展</td>
+<td style="text-align:left">无限（插件）</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>交互方式</strong></td>
+<td style="text-align:left">控制台文本</td>
+<td style="text-align:left">控制台+预览</td>
+<td style="text-align:left">Web 可视化</td>
+<td style="text-align:left">Web + REST API</td>
+<td style="text-align:left">Web + SDK + CLI</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>LLM 能力</strong></td>
+<td style="text-align:left">无</td>
+<td style="text-align:left">云端 API</td>
+<td style="text-align:left">云端+本地</td>
+<td style="text-align:left">多提供商 fallback</td>
+<td style="text-align:left">插件可扩展</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>匹配方式</strong></td>
+<td style="text-align:left">标签关键词</td>
+<td style="text-align:left">向量语义</td>
+<td style="text-align:left">混合匹配</td>
+<td style="text-align:left">向量+个性化</td>
+<td style="text-align:left">插件自定义</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>转场效果</strong></td>
+<td style="text-align:left">1 种（fade）</td>
+<td style="text-align:left">5+ 种</td>
+<td style="text-align:left">10+ 种</td>
+<td style="text-align:left">内置+API 扩展</td>
+<td style="text-align:left">插件无限扩展</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>增量操作</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">支持</td>
+<td style="text-align:left">支持</td>
+<td style="text-align:left">支持</td>
+<td style="text-align:left">支持</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>乐观更新</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">支持</td>
+<td style="text-align:left">支持</td>
+<td style="text-align:left">支持</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>持久化</strong></td>
+<td style="text-align:left">内存</td>
+<td style="text-align:left">SQLite</td>
+<td style="text-align:left">SQLite+Redis</td>
+<td style="text-align:left">PostgreSQL+MinIO</td>
+<td style="text-align:left">PostgreSQL+MinIO</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>部署方式</strong></td>
+<td style="text-align:left">本地脚本</td>
+<td style="text-align:left">本地脚本</td>
+<td style="text-align:left">Docker 单机</td>
+<td style="text-align:left">Kubernetes 集群</td>
+<td style="text-align:left">Kubernetes 集群</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>多租户</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">组织隔离</td>
+<td style="text-align:left">组织隔离</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>权限体系</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">RBAC</td>
+<td style="text-align:left">RBAC</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>配额计费</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">支持</td>
+<td style="text-align:left">支持</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>开放 API</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">RESTful</td>
+<td style="text-align:left">API + SDK</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>插件系统</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">完整</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>沙箱安全</strong></td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">不支持</td>
+<td style="text-align:left">Docker</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>可观测性</strong></td>
+<td style="text-align:left">基础日志</td>
+<td style="text-align:left">+LLM 追踪</td>
+<td style="text-align:left">+性能监控</td>
+<td style="text-align:left">+APM+告警</td>
+<td style="text-align:left">+插件监控</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>团队规模</strong></td>
+<td style="text-align:left">1-2 人</td>
+<td style="text-align:left">2-3 人</td>
+<td style="text-align:left">3-5 人</td>
+<td style="text-align:left">5-8 人</td>
+<td style="text-align:left">8-12 人</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>开发周期</strong></td>
+<td style="text-align:left">3-4 周</td>
+<td style="text-align:left">4-6 周</td>
+<td style="text-align:left">6-8 周</td>
+<td style="text-align:left">8-12 周</td>
+<td style="text-align:left">10-14 周</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>里程碑</strong></td>
+<td style="text-align:left">跑通流程</td>
+<td style="text-align:left">说人话</td>
+<td style="text-align:left">看得见</td>
+<td style="text-align:left">靠得住</td>
+<td style="text-align:left">一起玩</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>演进路径总结</h2>
+<pre class="mermaid">graph LR
+    V01[V0.1&lt;br/&gt;星型骨架] --&gt;|建立架构基础| V02[V0.2&lt;br/&gt;智能增强]
+    V02 --&gt;|丰富能力| V03[V0.3&lt;br/&gt;Web+协作]
+    V03 --&gt;|规模化| V10[V1.0&lt;br/&gt;生产就绪]
+    V10 --&gt;|平台化| V20[V2.0&lt;br/&gt;生态开放]
+    
+    subgraph 核心能力线
+        CAP1[能力注册] --&gt; CAP2[能力注册+]
+        CAP2 --&gt; CAP3[能力注册++]
+        CAP3 --&gt; CAP4[能力注册对外]
+        CAP4 --&gt; CAP5[插件市场]
+    end
+    
+    V01 -.-&gt; CAP1
+    V02 -.-&gt; CAP2
+    V03 -.-&gt; CAP3
+    V10 -.-&gt; CAP4
+    V20 -.-&gt; CAP5
+</pre>
+<p>拆解后的版本演进呈现清晰的逻辑递进：</p>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p><strong>V0.1 → V0.2</strong>：在架构骨架不变的前提下，注册更智能的能力。核心是&quot;能力扩展&quot;。</p>
+</li>
+<li class="lvl-2">
+<p><strong>V0.2 → V0.3</strong>：将能力通过 Web UI 呈现给用户。核心是&quot;交互升级&quot;。</p>
+</li>
+<li class="lvl-2">
+<p><strong>V0.3 → V1.0</strong>：将系统从单机扩展到云端，从个人工具升级为企业服务。核心是&quot;规模化&quot;。</p>
+</li>
+<li class="lvl-2">
+<p><strong>V1.0 → V2.0</strong>：将内部能力注册机制对外公开，从产品升级为平台。核心是&quot;生态化&quot;。</p>
+</li>
+</ul>
+<pre class="mermaid">graph TB
+    subgraph 启示[五个核心启示]
+        R1[架构连贯性 &gt; 功能丰富性&lt;br/&gt;星型骨架贯穿所有版本]
+        R2[能力注册是核心机制&lt;br/&gt;从内部注册到对外插件]
+        R3[挑战类型随成熟度迁移&lt;br/&gt;功能→体验→可靠性→安全]
+        R4[每个版本都有独立价值&lt;br/&gt;不依赖'完美'的上一版本]
+        R5[应对策略要可验证&lt;br/&gt;每个挑战都有明确验收标准]
+    end
+</pre>
+<p>每个版本的交付物都是下一版本的基础，不存在跳跃或推倒重来。能力注册机制从 V0.1 的内部实现，到 V1.0 的 API 对外，再到 V2.0 的插件 SDK——是同一个机制的渐进式开放，而非功能的突然引入。</p>
+<h2>版本与验证说明</h2>
+<p>本文属于项目文档而不是永久不变的 API 契约。以下情况发生时，应重新核对源码或发布说明：</p>
+<ol>
+<li class="lvl-3">
+<p>项目版本升级，尤其是公开 API、配置模型、存储实现和工作流发生变化；</p>
+</li>
+<li class="lvl-3">
+<p>本文中的默认值、性能数据或示例依赖外部服务版本；</p>
+</li>
+<li class="lvl-3">
+<p>运行环境与本文案例不同，例如 Python 版本、Redis/数据库版本、模型供应商或操作系统不同。</p>
+</li>
+</ol>
+<p>如果你要把本文内容用于生产环境，请优先使用仓库当前版本的 README、源码、测试和 Release 记录进行最终确认。</p>
+
+      </article>
+    </main>
+  </div>
+  <footer>
+    <a href="https://clip.helpenx.com" target="_blank" rel="noopener">PenClip 官网</a>·
+    <a href="https://github.com/neopen/video-clip-agent" target="_blank" rel="noopener">GitHub</a>·
+    <a href="index.html">文档中心</a>
+    <div style="margin-top:6px">© 2026 helpenx.com · 文档基线以文中标注版本对应的源码为准</div>
+  </footer>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+  </script>
+</body>
+</html>

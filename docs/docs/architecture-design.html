@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>可插拔 PenClip 如何分层架构？领域模型与设计模式支撑扩展性 · PenClip 文档</title>
+  <meta name="description" content="可插拔易扩展是多智能体系统的核心诉求。本文从开闭原则与依赖倒置出发，给出接入、应用、领域与基础四层架构，梳理工厂、策略、观察者、命令等模式在智能体创建、LLM 切换、事件推送与撤销重做中的落点，并结合 UML 与扩展点说明如何支撑热插拔。">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://clip.helpenx.com/docs/architecture-design.html">
+  <meta property="og:site_name" content="PenClip 文档">
+  <meta property="og:title" content="可插拔 PenClip 如何分层架构？领域模型与设计模式支撑扩展性">
+  <meta property="og:description" content="可插拔易扩展是多智能体系统的核心诉求。本文从开闭原则与依赖倒置出发，给出接入、应用、领域与基础四层架构，梳理工厂、策略、观察者、命令等模式在智能体创建、LLM 切换、事件推送与撤销重做中的落点，并结合 UML 与扩展点说明如何支撑热插拔。">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://clip.helpenx.com/docs/architecture-design.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>✂️</text></svg>">
+  <style>
+:root{--brand:#2563eb;--brand-dark:#1d4ed8;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;color:var(--ink);background:#fff;line-height:1.75;font-size:16px}
+a{color:var(--brand);text-decoration:none}a:hover{color:var(--brand-dark);text-decoration:underline}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 24px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px;color:var(--ink)}
+.topbar .brand .doc-badge{font-size:12px;font-weight:600;color:#fff;background:var(--brand);border-radius:6px;padding:2px 8px}
+.topbar nav{display:flex;gap:20px;font-size:14.5px}
+.topbar nav a{color:var(--muted);font-weight:500}
+.topbar nav a:hover{color:var(--brand)}
+.wrap{display:flex;max-width:1280px;margin:0 auto;padding:0 16px}
+.sidebar{width:264px;flex-shrink:0;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto;padding:24px 16px 40px 0;border-right:1px solid var(--line)}
+.sidebar .side-home{display:block;font-weight:600;color:var(--ink);margin-bottom:16px;font-size:15px}
+.sidebar .side-home:hover{color:var(--brand);text-decoration:none}
+.sidebar h4{font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 8px;font-weight:600}
+.sidebar a{display:block;padding:5px 10px;border-radius:6px;font-size:14px;color:#334155;line-height:1.5}
+.sidebar a:hover{background:var(--bg);color:var(--brand);text-decoration:none}
+.sidebar a.active{background:var(--brand);color:#fff}
+.content{flex:1;min-width:0;padding:32px 20px 60px 36px;max-width:860px}
+.toc-mobile{display:none;margin-bottom:20px;border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.toc-mobile summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.toc-mobile a{display:block;padding:3px 0;font-size:14px}
+.article h1{font-size:1.9em;line-height:1.35;margin:.4em 0 .8em}
+.article h2{font-size:1.45em;margin:1.8em 0 .7em;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+.article h3{font-size:1.22em;margin:1.5em 0 .6em}
+.article h4{font-size:1.08em;margin:1.3em 0 .5em}
+.article p{margin:.85em 0}
+.article ul,.article ol{padding-left:1.6em;margin:.7em 0}
+.article li{margin:.35em 0}
+.article img{max-width:100%;height:auto;border-radius:8px}
+.article table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.94em;display:block;overflow-x:auto}
+.article th,.article td{border:1px solid var(--line);padding:8px 12px;text-align:left}
+.article th{background:var(--bg);font-weight:600}
+.article tr:nth-child(even) td{background:#fbfdff}
+.article blockquote{margin:1.1em 0;padding:.7em 1.1em;border-left:4px solid var(--brand);background:var(--bg);border-radius:0 8px 8px 0;color:#334155}
+.article blockquote p{margin:.3em 0}
+.article code:not(pre code){background:#eef2f7;color:#c7254e;padding:.15em .4em;border-radius:4px;font-size:.88em;word-break:break-word}
+.article pre.hljs{background:#f6f8fa;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;margin:1.1em 0;line-height:1.6}
+.article pre.hljs code{background:none;padding:0;color:var(--ink);font-size:.9em;font-family:ui-monospace,SFMono-Regular,'Cascadia Code',Consolas,Menlo,monospace}
+.article pre.mermaid{text-align:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;margin:1.1em 0}
+.article hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+.article .success,.article .tips,.article .warning,.article .danger{border-radius:8px;padding:.9em 1.1em;margin:1.1em 0;border:1px solid}
+.article .success{border-color:#a7f3d0;background:#ecfdf5}.article .success p:first-of-type::before{content:'✅ '}
+.article .tips{border-color:#bfdbfe;background:#eff6ff}.article .tips p:first-of-type::before{content:'💡 '}
+.article .warning{border-color:#fde68a;background:#fffbeb}.article .warning p:first-of-type::before{content:'⚠️ '}
+.article .danger{border-color:#fecaca;background:#fef2f2}.article .danger p:first-of-type::before{content:'🚫 '}
+.article .success>p:first-child,.article .tips>p:first-child,.article .warning>p:first-child,.article .danger>p:first-child{margin-top:0}
+.article .success>p:last-child,.article .tips>p:last-child,.article .warning>p:last-child,.article .danger>p:last-child{margin-bottom:0}
+.doc-meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 8px;font-size:13px;color:var(--muted)}
+.doc-meta .tag{background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:2px 10px}
+.doc-nav{display:flex;justify-content:space-between;gap:16px;margin-top:48px;padding-top:20px;border-top:1px solid var(--line)}
+.doc-nav a{font-weight:600}
+footer{border-top:1px solid var(--line);padding:22px 24px;text-align:center;color:var(--muted);font-size:13.5px}
+footer a{color:var(--muted);margin:0 10px}
+footer a:hover{color:var(--brand)}
+@media (max-width:960px){
+  .sidebar{display:none}
+  .toc-mobile{display:block}
+  .content{padding:20px 6px 50px}
+  .topbar nav{gap:12px}
+}
+</style>
+  <style>
+.hljs{color:#24292e;background:#f6f8fa}
+.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.constant_{color:#d73a49}
+.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:#6f42c1}
+.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:#005cc5}
+.hljs-string,.hljs-meta .hljs-string,.hljs-regexp{color:#032f62}
+.hljs-bullet,.hljs-link,.hljs-meta,.hljs-selector-tag,.hljs-subst,.hljs-symbol{color:#e36209}
+.hljs-built_in,.hljs-class .hljs-title{color:#e36209}
+.hljs-comment,.hljs-meta,.hljs-quote{color:#6a737d}
+.hljs-section{color:#005cc5;font-weight:700}
+.hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html">✂️ PenClip <span class="doc-badge">文档</span></a>
+    <nav>
+      <a href="https://clip.helpenx.com" target="_blank" rel="noopener">产品官网</a>
+      <a href="https://github.com/neopen/video-clip-agent" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+  <div class="wrap">
+    <aside class="sidebar">
+      <a class="side-home" href="index.html">✂️ 视频混剪智能体 · 文档中心</a>
+      <h4>架构与核心设计</h4><a href="architecture.html">固定流水线还是星型中枢？视频混剪智能体 PenClip 的两种架构模式取舍</a><a href="architecture-design.html" class="active">可插拔视频混剪系统 PenClip 如何分层架构？领域模型与设计模式支撑扩展性</a>
+<h4>版本与演进</h4><a href="evolution.html">视频混剪智能体 PenClip 如何从 MVP 演进到插件平台？能力注册机制的渐进式开放</a>
+<h4>项目概览</h4><a href="index.html">如何用一句话让 AI 剪出成片？PenClip 多智能体系统的人机协同机制</a>
+    </aside>
+    <main class="content">
+      <details class="toc-mobile"><summary>📑 文档目录</summary><div><strong style="font-size:13px;color:var(--muted)">架构与核心设计</strong><a href="architecture.html">固定流水线还是星型中枢？视频混剪智能体 PenClip 的两种架构模式取舍</a><a href="architecture-design.html">可插拔视频混剪系统 PenClip 如何分层架构？领域模型与设计模式支撑扩展性</a></div><div><strong style="font-size:13px;color:var(--muted)">版本与演进</strong><a href="evolution.html">视频混剪智能体 PenClip 如何从 MVP 演进到插件平台？能力注册机制的渐进式开放</a></div><div><strong style="font-size:13px;color:var(--muted)">项目概览</strong><a href="index.html">如何用一句话让 AI 剪出成片？PenClip 多智能体系统的人机协同机制</a></div></details>
+      <article class="article">
+        <div class="doc-meta"><span class="tag">PenClip</span><span class="tag">更新 2026-08-09</span><a href="https://clip.helpenx.com" target="_blank" rel="noopener">clip.helpenx.com ↗</a></div>
+        <h1>PenClip 架构设计原则</h1>
+<p>相关链接：<a href="https://github.com/neopen/video-clip-agent">GitHub</a> | <a href="https://clip.helpenx.com">官网</a> | <a href="index.html">文档</a></p>
+<ul>
+    <li><a href="architecture.html">NeoClip 技术架构（系统总体架构、人机协同、线性链路、星型中枢分发、数据契约、优化策略）</a></li>
+    <li><a href="evolution.html">NeoClip 版本演进（MVP、智能语义理解、可视化UI、企业级支持、插件化）</a></li>
+</ul>
+<blockquote>
+<p><strong>文档定位</strong>：这是一篇架构文档。重点是解释组件之间的职责、数据流和关键设计取舍，并区分当前实现与设计层面的推演。<br>
+<strong>事实边界</strong>：实现文档：功能、接口和代码行为以文中标注版本对应的源码为准；仓库后续版本可能发生变化。<br>
+<strong>权威来源</strong>：<a href="https://github.com/neopen/video-clip-agent">PenClip 源码仓库</a>；涉及版本历史时，以仓库 Release / CHANGELOG 为准。<br>
+<strong>代码标记</strong>：如果正文出现“源码/实现”字样，表示对应代码路径可在仓库中核对；示例代码仅用于演示调用方式，不应理解为项目源码原样。</p>
+</blockquote>
+<h2>读完本文后，你应该知道什么</h2>
+<ul class="lvl-0">
+<li class="lvl-2">
+<p>能够沿着数据流定位主要组件，并解释关键设计取舍。</p>
+</li>
+<li class="lvl-2">
+<p>哪些内容属于当前版本的实现，哪些内容需要以仓库最新代码重新核对。</p>
+</li>
+<li class="lvl-2">
+<p>遇到行为与本文不一致时，应该优先检查版本、配置和源码，而不是继续沿用旧结论。</p>
+</li>
+</ul>
+<blockquote>
+<p>基于前期的架构规划，现给出完整的项目结构及顶层架构设计。重点考虑扩展性、可维护性和设计模式的合理运用。</p>
+</blockquote>
+<hr>
+<h2>设计原则</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">原则</th>
+<th style="text-align:left">说明</th>
+<th style="text-align:left">体现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>开闭原则</strong></td>
+<td style="text-align:left">对扩展开放，对修改关闭</td>
+<td style="text-align:left">能力注册机制、插件化架构</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>依赖倒置</strong></td>
+<td style="text-align:left">依赖抽象而非具体实现</td>
+<td style="text-align:left">智能体基类、工具接口抽象</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>单一职责</strong></td>
+<td style="text-align:left">每个模块只负责一件事</td>
+<td style="text-align:left">智能体拆分、中枢职责分离</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>接口隔离</strong></td>
+<td style="text-align:left">小而专的接口优于大而全</td>
+<td style="text-align:left">Agent 接口、工具接口分离</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>迪米特法则</strong></td>
+<td style="text-align:left">减少模块间耦合</td>
+<td style="text-align:left">通过中枢协调，智能体不直接通信</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>策略模式</strong></td>
+<td style="text-align:left">算法可互换</td>
+<td style="text-align:left">匹配策略、LLM 提供商切换</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>观察者模式</strong></td>
+<td style="text-align:left">状态变更通知</td>
+<td style="text-align:left">状态管理器推送到前端</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>工厂模式</strong></td>
+<td style="text-align:left">对象创建封装</td>
+<td style="text-align:left">智能体工厂、能力工厂</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>顶层架构图</h2>
+<pre class="mermaid">graph TB
+    subgraph 接入层[接入层]
+        CLI[CLI Gateway]
+        HTTP[HTTP Gateway]
+        WS[WebSocket Gateway]
+    end
+
+    subgraph 应用层[应用层]
+        subgraph 中枢层[中枢层]
+            HUB[CentralHub&lt;br/&gt;指令解析中枢]
+            REG[CapabilityRegistry&lt;br/&gt;能力注册表]
+            CTX[ContextManager&lt;br/&gt;上下文管理器]
+            RISK[RiskAssessor&lt;br/&gt;风险评估器]
+            INTENT[IntentRecognizer&lt;br/&gt;意图识别器]
+        end
+        
+        subgraph 编排层[编排层]
+            ORCH[WorkflowOrchestrator&lt;br/&gt;工作流编排器]
+            GRAPH[LangGraphEngine&lt;br/&gt;图引擎]
+        end
+    end
+
+    subgraph 领域层[领域层 - 智能体]
+        PLANNER[PlannerAgent&lt;br/&gt;规划师]
+        ANALYZER[AnalyzerAgent&lt;br/&gt;分析师]
+        MATCHER[MatcherAgent&lt;br/&gt;匹配师]
+        COMPOSER[ComposerAgent&lt;br/&gt;合成师]
+        PLUGINS[PluginAgent&lt;br/&gt;插件代理]
+    end
+
+    subgraph 基础层[基础层]
+        subgraph 工具
+            LLM[LLM Service]
+            CLIP[CLIP Service]
+            FFMPEG[FFmpeg Service]
+            SEGMENT[SceneDetect Service]
+        end
+        
+        subgraph 存储
+            STATE[StateStore]
+            CHECKPOINT[CheckpointStore]
+            FILE[FileStore]
+            VECTOR[VectorStore]
+        end
+        
+        subgraph 基础设施
+            LOG[Logger]
+            METRIC[Metrics]
+            TRACE[Tracer]
+            CACHE[Cache]
+        end
+    end
+
+    接入层 --&gt; 中枢层
+    中枢层 --&gt; 编排层
+    编排层 --&gt; 领域层
+    领域层 --&gt; 基础层
+    中枢层 --&gt; 基础层
+</pre>
+<hr>
+<h2>设计模式应用</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">设计模式</th>
+<th style="text-align:left">应用位置</th>
+<th style="text-align:left">解决的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>工厂模式</strong></td>
+<td style="text-align:left"><code>AgentFactory</code>, <code>LLMFactory</code>, <code>GraphFactory</code></td>
+<td style="text-align:left">统一创建复杂对象，便于扩展新类型</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>策略模式</strong></td>
+<td style="text-align:left"><code>LLMService</code> 各实现类</td>
+<td style="text-align:left">算法可互换（切换 LLM 提供商）</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>观察者模式</strong></td>
+<td style="text-align:left"><code>EventBus</code>, 状态变更推送</td>
+<td style="text-align:left">解耦状态变更与响应逻辑</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>责任链模式</strong></td>
+<td style="text-align:left">中间件链（认证→限流→日志）</td>
+<td style="text-align:left">灵活组合请求处理逻辑</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>适配器模式</strong></td>
+<td style="text-align:left"><code>*Repository</code> 实现类</td>
+<td style="text-align:left">适配不同存储后端</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>单例模式</strong></td>
+<td style="text-align:left"><code>CentralHub</code>, <code>EventBus</code></td>
+<td style="text-align:left">确保全局唯一实例</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>模板方法</strong></td>
+<td style="text-align:left"><code>BaseAgent.execute()</code></td>
+<td style="text-align:left">定义执行骨架，子类实现细节</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>命令模式</strong></td>
+<td style="text-align:left"><code>Operation</code> 历史记录</td>
+<td style="text-align:left">支持撤销/重做</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>建造者模式</strong></td>
+<td style="text-align:left"><code>TimelineBuilder</code>, <code>SlotBuilder</code></td>
+<td style="text-align:left">构建复杂的时间线对象</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>代理模式</strong></td>
+<td style="text-align:left"><code>PluginAgent</code></td>
+<td style="text-align:left">为插件提供访问控制</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>装饰器模式</strong></td>
+<td style="text-align:left"><code>CacheableLLMService</code></td>
+<td style="text-align:left">为服务添加缓存能力</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>依赖注入</strong></td>
+<td style="text-align:left">API 层 <code>dependencies.py</code></td>
+<td style="text-align:left">解耦依赖创建与使用</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>项目目录结构</h2>
+<pre class="hljs"><code>video-clip-agent/
+├── src/PenClip/
+│   ├── __init__.py
+│   │
+│   ├── core/                             # 核心模块
+│   │   ├── __init__.py
+│   │   ├── hub/                          # 中枢层
+│   │   │   ├── __init__.py
+│   │   │   ├── central_hub.py            # CentralHub - 指令解析中枢
+│   │   │   ├── capability_registry.py    # CapabilityRegistry - 能力注册表
+│   │   │   ├── intent_recognizer.py      # IntentRecognizer - 意图识别
+│   │   │   ├── risk_assessor.py          # RiskAssessor - 风险评估
+│   │   │   └── context_manager.py        # ContextManager - 上下文管理
+│   │   │
+│   │   ├── orchestration/                # 编排层
+│   │   │   ├── __init__.py
+│   │   │   ├── workflow_orchestrator.py  # WorkflowOrchestrator
+│   │   │   ├── graph_engine.py           # LangGraphEngine
+│   │   │   └── graph_factory.py          # GraphFactory - 图工厂
+│   │   │
+│   │   ├── state/                        # 状态管理
+│   │   │   ├── __init__.py
+│   │   │   ├── state_schema.py           # 状态数据模型
+│   │   │   ├── state_manager.py          # StateManager
+│   │   │   ├── state_store.py            # StateStore 接口
+│   │   │   ├── memory_store.py           # MemoryStateStore
+│   │   │   ├── sqlite_store.py           # SQLiteStateStore
+│   │   │   └── checkpointer.py           # Checkpointer
+│   │   │
+│   │   └── event/                        # 事件系统
+│   │       ├── __init__.py
+│   │       ├── event_bus.py              # EventBus - 事件总线
+│   │       ├── event_types.py            # 事件类型定义
+│   │       └── event_handlers.py         # 事件处理器
+│   │
+│   ├── agents/                           # 智能体层
+│   │   ├── __init__.py
+│   │   ├── base.py                       # BaseAgent 抽象基类
+│   │   ├── agent_factory.py              # AgentFactory - 智能体工厂
+│   │   ├── planner.py                    # PlannerAgent
+│   │   ├── analyzer.py                   # AnalyzerAgent
+│   │   ├── matcher.py                    # MatcherAgent
+│   │   ├── composer.py                   # ComposerAgent
+│   │   └── plugin_agent.py               # PluginAgent - 插件代理
+│   │
+│   ├── domain/                           # 领域模型
+│   │   ├── __init__.py
+│   │   ├── entities/                     # 实体
+│   │   │   ├── __init__.py
+│   │   │   ├── video_asset.py            # VideoAsset
+│   │   │   ├── segment.py                # Segment
+│   │   │   ├── slot.py                   # Slot
+│   │   │   ├── timeline.py               # Timeline
+│   │   │   └── assembly_state.py         # AssemblyState
+│   │   │
+│   │   ├── value_objects/                # 值对象
+│   │   │   ├── __init__.py
+│   │   │   ├── intent.py                 # IntentType
+│   │   │   ├── risk.py                   # RiskLevel
+│   │   │   ├── capability.py             # CapabilityDeclaration
+│   │   │   └── execution_result.py       # ExecutionResult
+│   │   │
+│   │   └── repositories/                 # 仓储接口
+│   │       ├── __init__.py
+│   │       ├── asset_repository.py       # AssetRepository
+│   │       ├── project_repository.py     # ProjectRepository
+│   │       └── session_repository.py     # SessionRepository
+│   │
+│   ├── services/                         # 服务层
+│   │   ├── __init__.py
+│   │   ├── llm_service.py                # LLMService - 策略模式
+│   │   ├── clip_service.py               # CLIPService
+│   │   ├── ffmpeg_service.py             # FFmpegService
+│   │   ├── scene_detect_service.py       # SceneDetectService
+│   │   ├── vector_service.py             # VectorService
+│   │   └── file_service.py               # FileService
+│   │
+│   ├── infrastructure/                   # 基础设施
+│   │   ├── __init__.py
+│   │   ├── persistence/                  # 持久化
+│   │   │   ├── __init__.py
+│   │   │   ├── postgres_repository.py    # PostgreSQL 仓储
+│   │   │   └── minio_repository.py       # MinIO 仓储
+│   │   │
+│   │   ├── cache/                        # 缓存
+│   │   │   ├── __init__.py
+│   │   │   ├── cache_service.py          # CacheService
+│   │   │   └── redis_cache.py            # RedisCache
+│   │   │
+│   │   └── messaging/                    # 消息
+│   │       ├── __init__.py
+│   │       ├── message_queue.py          # MessageQueue
+│   │       └── redis_queue.py            # RedisQueue
+│   │
+│   ├── api/                              # API 层
+│   │   ├── __init__.py
+│   │   ├── v1/                           # API v1
+│   │   │   ├── __init__.py
+│   │   │   ├── routes.py                 # 路由注册
+│   │   │   ├── dependencies.py           # 依赖注入
+│   │   │   ├── session.py                # 会话 API
+│   │   │
+│   │   ├── middleware/                   # 中间件
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py                   # 认证中间件
+│   │   │   ├── logging.py                # 日志中间件
+│   │   │   ├── rate_limit.py             # 限流中间件
+│   │   │   └── error_handler.py          # 错误处理
+│   │   │
+│   │   ├── websocket/                    # WebSocket
+│   │   │   ├── __init__.py
+│   │   │   ├── connection_manager.py     # ConnectionManager
+│   │   │   └── message_handler.py        # MessageHandler
+│   │   │
+│   │   └── schemas/                      # Pydantic 模型
+│   │       ├── request.py
+│   │       ├── response.py
+│   │       └── event.py
+│   │
+│   ├── cli/                              # CLI
+│   │
+│   └── plugins/                          # 插件系统
+│       ├── __init__.py
+│       ├── plugin_base.py                # PluginBase
+│       ├── plugin_loader.py              # PluginLoader
+│       ├── plugin_manager.py             # PluginManager
+│       └── sandbox/                      # 沙箱
+│
+├── config/                               # 配置
+│   ├── __init__.py
+│   ├── settings.py                       # 全局配置
+│   └── profiles/                         # 配置环境
+│       ├── development.yaml
+│       ├── production.yaml
+│       └── testing.yaml
+│
+├── tests/                                # 测试
+│   ├── unit/                             # 单元测试
+│   │   ├── core/
+│   │   ├── agents/
+│   │   ├── domain/
+│   │   └── services/
+│   │
+│   ├── integration/                      # 集成测试
+│   ├── e2e/                              # 端到端测试
+│   └── fixtures/                         # 测试数据
+│
+├── scripts/                              # 脚本
+├── docker/                               # Docker
+├── docs/                                 # 文档
+│
+├── pyproject.toml
+├── requirements.txt
+├── .env.example
+└── README.md
+</code></pre>
+<hr>
+<h2>核心模块设计（UML）</h2>
+<h3>中枢层类图</h3>
+<pre class="mermaid">classDiagram
+    class CentralHub {
+        -CapabilityRegistry _registry
+        -IntentRecognizer _intent_recognizer
+        -RiskAssessor _risk_assessor
+        -ContextManager _context_manager
+        -EventBus _event_bus
+        -StateManager _state_manager
+        +process(request: HubRequest) HubResponse
+        +register_agent(agent: BaseAgent) bool
+        +unregister_agent(agent_id: str) bool
+        +get_capabilities() List~CapabilityDeclaration~
+        +handle_interrupt(session_id: str, user_input: str) HubResponse
+    }
+    
+    class CapabilityRegistry {
+        -Dict~str, CapabilityEntry~ _capabilities
+        -Dict~IntentType, List~str~~ _intent_index
+        +register(declaration: CapabilityDeclaration) bool
+        +unregister(agent_id: str) bool
+        +find_by_intent(intent: IntentType) List~CapabilityDeclaration~
+        +find_by_agent(agent_id: str) CapabilityDeclaration
+        +list_all() List~CapabilityDeclaration~
+    }
+    
+    class IntentRecognizer {
+        -LLMService _llm_service
+        -List~IntentExample~ _examples
+        +recognize(text: str, context: Dict) IntentResult
+        +extract_params(text: str, intent: IntentType) Dict
+        +needs_clarification(text: str) bool
+        +generate_clarification(text: str) str
+    }
+    
+    class RiskAssessor {
+        -Dict~IntentType, RiskLevel~ _intent_risk_map
+        +assess(intent: IntentType, params: Dict, context: Dict) RiskLevel
+        +needs_confirmation(risk: RiskLevel) bool
+        +generate_confirmation_message(intent: IntentType, params: Dict) str
+    }
+    
+    class ContextManager {
+        -Dict~str, InteractionContext~ _sessions
+        -int _max_history
+        +get_context(session_id: str) InteractionContext
+        +update_context(session_id: str, update: Dict) void
+        +resolve_reference(session_id: str, reference: str) Optional~str~
+        +add_history(session_id: str, entry: Dict) void
+        +clear_context(session_id: str) void
+    }
+    
+    CentralHub --&gt; CapabilityRegistry
+    CentralHub --&gt; IntentRecognizer
+    CentralHub --&gt; RiskAssessor
+    CentralHub --&gt; ContextManager
+</pre>
+<h3>智能体层类图</h3>
+<pre class="mermaid">classDiagram
+    class BaseAgent {
+        +str agent_id
+        +str agent_name
+        +str version
+        +declare_capabilities() CapabilityDeclaration
+        +execute(params: Dict, context: ExecutionContext) ExecutionResult
+        +execute_incremental(params: Dict, context: ExecutionContext) ExecutionResult
+        +on_load() void
+        +on_unload() void
+        #_validate_params(params: Dict) bool
+        #_log_execution(result: ExecutionResult) void
+    }
+    
+    class PlannerAgent {
+        -LLMService _llm
+        -TimelineFactory _timeline_factory
+        +declare_capabilities() CapabilityDeclaration
+        +execute(params: Dict, context: ExecutionContext) ExecutionResult
+        +execute_incremental(params: Dict, context: ExecutionContext) ExecutionResult
+        -_parse_intent(text: str) Timeline
+        -_build_slots(timeline: Timeline) List~Slot~
+        -_apply_global_context(timeline: Timeline) Timeline
+    }
+    
+    class AnalyzerAgent {
+        -SceneDetectService _scene_detect
+        -CLIPService _clip
+        -FFmpegService _ffmpeg
+        +declare_capabilities() CapabilityDeclaration
+        +execute(params: Dict, context: ExecutionContext) ExecutionResult
+        +execute_incremental(params: Dict, context: ExecutionContext) ExecutionResult
+        -_segment_video(asset_id: str) List~Segment~
+        -_annotate_segments(segments: List~Segment~) List~Segment~
+        -_extract_keyframes(segments: List~Segment~) List~str~
+    }
+    
+    class MatcherAgent {
+        -VectorService _vector_service
+        -CLIPService _clip
+        -CacheService _cache
+        +declare_capabilities() CapabilityDeclaration
+        +execute(params: Dict, context: ExecutionContext) ExecutionResult
+        +execute_incremental(params: Dict, context: ExecutionContext) ExecutionResult
+        -_semantic_search(query: str, candidates: List~Segment~) List~Match~
+        -_apply_constraints(matches: List~Match~, constraints: Dict) List~Match~
+        -_rank_by_similarity(matches: List~Match~) List~Match~
+    }
+    
+    class ComposerAgent {
+        -FFmpegService _ffmpeg
+        -FileService _file_service
+        +declare_capabilities() CapabilityDeclaration
+        +execute(params: Dict, context: ExecutionContext) ExecutionResult
+        +execute_incremental(params: Dict, context: ExecutionContext) ExecutionResult
+        -_build_timeline(slots: List~Slot~) Timeline
+        -_generate_ffmpeg_command(timeline: Timeline) str
+        -_render_video(command: str) str
+        -_mix_audio(timeline: Timeline) str
+    }
+    
+    class AgentFactory {
+        -Dict~str, Type~BaseAgent~~ _agent_types
+        +register_agent_type(name: str, agent_class: Type~BaseAgent~) void
+        +create_agent(name: str, config: Dict) BaseAgent
+        +create_all_agents(config: Dict) List~BaseAgent~
+    }
+    
+    PlannerAgent --|&gt; BaseAgent
+    AnalyzerAgent --|&gt; BaseAgent
+    MatcherAgent --|&gt; BaseAgent
+    ComposerAgent --|&gt; BaseAgent
+    AgentFactory --&gt; BaseAgent
+</pre>
+<h3>领域模型类图</h3>
+<pre class="mermaid">classDiagram
+    class AssemblyState {
+        +str session_id
+        +List~VideoAsset~ assets
+        +List~Slot~ slots
+        +Dict~str, AnalysisResult~ analysis_results
+        +Dict~str, MatchResult~ match_results
+        +GlobalContext global_context
+        +InteractionContext interaction_context
+        +str current_phase
+        +List~Operation~ history
+        +DateTime created_at
+        +DateTime updated_at
+        +get_asset(asset_id: str) Optional~VideoAsset~
+        +get_slot(slot_id: str) Optional~Slot~
+        +add_asset(asset: VideoAsset) void
+        +add_slot(slot: Slot) void
+        +update_slot(slot_id: str, update: Dict) void
+        +get_pending_confirmation() Optional~Confirmation~
+    }
+    
+    class VideoAsset {
+        +str asset_id
+        +str filename
+        +str file_path
+        +str file_hash
+        +float duration
+        +int width
+        +int height
+        +int bitrate
+        +AssetStatus status
+        +Dict~str, any~ metadata
+        +DateTime uploaded_at
+        +is_analyzed() bool
+        +get_thumbnail() str
+    }
+    
+    class Slot {
+        +str slot_id
+        +int position
+        +str semantic_query
+        +float min_duration
+        +float max_duration
+        +Optional~str~ source_constraint
+        +str transition_type
+        +Optional~str~ assigned_segment_id
+        +float confidence
+        +Dict~str, any~ custom_params
+        +bool is_filled() bool
+        +bool is_editable() bool
+    }
+    
+    class Segment {
+        +str segment_id
+        +str asset_id
+        +float start_time
+        +float end_time
+        +float duration
+        +List~str~ labels
+        +Dict~str, float~ label_scores
+        +str thumbnail_path
+        +Optional~bytes~ feature_vector
+        +float quality_score
+        +is_valid() bool
+        +contains_time(time: float) bool
+    }
+    
+    class AnalysisResult {
+        +str asset_id
+        +List~Segment~ segments
+        +Dict~str, float~ scene_breakdown
+        +float analysis_duration
+        +str status
+        +DateTime completed_at
+        +get_segment_by_label(label: str) List~Segment~
+        +get_segments_by_time(start: float, end: float) List~Segment~
+    }
+    
+    class MatchResult {
+        +str slot_id
+        +List~MatchCandidate~ candidates
+        +Optional~str~ selected_candidate_id
+        +float match_duration
+        +bool is_confirmed
+        +get_best_candidate() Optional~MatchCandidate~
+        +select_candidate(candidate_id: str) void
+    }
+    
+    class MatchCandidate {
+        +str candidate_id
+        +str segment_id
+        +float similarity_score
+        +float duration_match_score
+        +float overall_score
+        +Dict~str, float~ score_breakdown
+        +bool meets_constraints() bool
+    }
+    
+    class GlobalContext {
+        +str mood
+        +Optional~str~ bgm_path
+        +float bgm_volume
+        +str output_resolution
+        +str output_format
+        +Optional~str~ style_prompt
+        +Dict~str, any~ custom_settings
+    }
+    
+    class InteractionContext {
+        +Optional~str~ active_slot_id
+        +Optional~str~ last_previewed_clip
+        +Optional~str~ pending_clarification
+        +List~Dict~ conversation_history
+        +List~Dict~ undo_stack
+        +Optional~str~ current_operation
+    }
+    
+    AssemblyState *-- VideoAsset
+    AssemblyState *-- Slot
+    AssemblyState *-- GlobalContext
+    AssemblyState *-- InteractionContext
+    AssemblyState o-- AnalysisResult
+    AssemblyState o-- MatchResult
+    AnalysisResult *-- Segment
+    MatchResult *-- MatchCandidate
+    MatchCandidate --&gt; Segment
+</pre>
+<h3>服务层类图（策略模式）</h3>
+<pre class="mermaid">classDiagram
+    class LLMService {
+        +generate(prompt: str, schema: Dict) Dict
+        +embed(text: str) List[float]
+        +classify(text: str, classes: List[str]) Dict
+        +chat(messages: List[Dict], stream: bool) AsyncIterator[str]
+    }
+
+
+    class OpenAILLMService {
+        -str _api_key
+        -str _model
+        -float _temperature
+        +generate(prompt: str, schema: Dict) Dict
+        +embed(text: str) List[float]
+        +classify(text: str, classes: List[str]) Dict
+        +chat(messages: List[Dict], stream: bool) AsyncIterator[str]
+    }
+
+    class QwenLLMService {
+        -str _api_key
+        -str _base_url
+        -str _model
+        +generate(prompt: str, schema: Dict) Dict
+        +embed(text: str) List[float]
+        +classify(text: str, classes: List[str]) Dict
+        +chat(messages: List[Dict], stream: bool) AsyncIterator[str]
+    }
+
+    class LocalLLMService {
+        -str _model_path
+        -int _max_tokens
+        +generate(prompt: str, schema: Dict) Dict
+        +embed(text: str) List[float]
+        +classify(text: str, classes: List[str]) Dict
+        +chat(messages: List[Dict], stream: bool) AsyncIterator[str]
+    }
+
+    class LLMFactory {
+        +create_llm_service(config: Dict) LLMService
+        +create_fallback_chain(configs: List[Dict]) LLMService
+    }
+
+    OpenAILLMService ..|&gt; LLMService
+    QwenLLMService ..|&gt; LLMService
+    LocalLLMService ..|&gt; LLMService
+    LLMFactory --&gt; LLMService
+</pre>
+<h3>仓储层类图</h3>
+<pre class="mermaid">classDiagram
+    class AssetRepository {
+        +save(asset) void
+        +find_by_id(asset_id) Optional
+        +find_by_session(session_id) List
+        +delete(asset_id) bool
+        +exists(file_hash) bool
+    }
+
+
+    class ProjectRepository {
+        +save(project) void
+        +find_by_id(project_id) Optional
+        +find_by_user(user_id) List
+        +delete(project_id) bool
+        +update(project) void
+    }
+
+
+    class SessionRepository {
+        +save(session) void
+        +find_by_id(session_id) Optional
+        +find_by_user(user_id) List
+        +delete(session_id) bool
+        +update(session) void
+    }
+
+
+    class PostgresAssetRepository {
+        -Database _db
+        +save(asset) void
+        +find_by_id(asset_id) Optional
+        +find_by_session(session_id) List
+        +delete(asset_id) bool
+        +exists(file_hash) bool
+    }
+
+    class MemoryAssetRepository {
+        -Dict _store
+        +save(asset) void
+        +find_by_id(asset_id) Optional
+        +find_by_session(session_id) List
+        +delete(asset_id) bool
+        +exists(file_hash) bool
+    }
+
+    class PostgresProjectRepository {
+        -Database _db
+        +save(project) void
+        +find_by_id(project_id) Optional
+        +find_by_user(user_id) List
+        +delete(project_id) bool
+        +update(project) void
+    }
+
+    class PostgresSessionRepository {
+        -Database _db
+        +save(session) void
+        +find_by_id(session_id) Optional
+        +find_by_user(user_id) List
+        +delete(session_id) bool
+        +update(session) void
+    }
+
+    PostgresAssetRepository ..|&gt; AssetRepository
+    MemoryAssetRepository ..|&gt; AssetRepository
+    PostgresProjectRepository ..|&gt; ProjectRepository
+    PostgresSessionRepository ..|&gt; SessionRepository
+</pre>
+<hr>
+<h2>扩展点设计</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">扩展点</th>
+<th style="text-align:left">扩展方式</th>
+<th style="text-align:left">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>新增智能体</strong></td>
+<td style="text-align:left">继承 <code>BaseAgent</code> + 注册能力</td>
+<td style="text-align:left">实现 <code>declare_capabilities</code> 和 <code>execute</code></td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增 LLM 提供商</strong></td>
+<td style="text-align:left">实现 <code>LLMService</code> 接口</td>
+<td style="text-align:left">工厂创建新实例</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增匹配策略</strong></td>
+<td style="text-align:left">实现 <code>MatchingStrategy</code></td>
+<td style="text-align:left">策略模式替换</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增存储后端</strong></td>
+<td style="text-align:left">实现仓储接口</td>
+<td style="text-align:left">适配器模式扩展</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增插件</strong></td>
+<td style="text-align:left">实现 <code>PluginBase</code></td>
+<td style="text-align:left">通过插件管理器加载</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增 API 端点</strong></td>
+<td style="text-align:left">在 <code>routes.py</code> 注册</td>
+<td style="text-align:left">FastAPI 路由扩展</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增中间件</strong></td>
+<td style="text-align:left">实现 <code>Middleware</code></td>
+<td style="text-align:left">责任链添加</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>新增事件处理器</strong></td>
+<td style="text-align:left">订阅 <code>EventBus</code></td>
+<td style="text-align:left">观察者模式扩展</td>
+</tr>
+</tbody>
+</table>
+<h3>多维度扩展体系</h3>
+<pre class="mermaid">graph TB
+    subgraph 扩展维度[扩展性五维度]
+        D1[智能体扩展&lt;br/&gt;新增剪辑能力]
+        D2[策略扩展&lt;br/&gt;算法可插拔]
+        D3[数据源扩展&lt;br/&gt;多种存储后端]
+        D4[协议扩展&lt;br/&gt;多接入方式]
+        D5[UI扩展&lt;br/&gt;自定义组件]
+    end
+    
+    subgraph 扩展机制[扩展实现机制]
+        M1[能力注册表&lt;br/&gt;声明式注册]
+        M2[策略工厂&lt;br/&gt;运行时切换]
+        M3[仓储适配器&lt;br/&gt;接口实现]
+        M4[网关适配器&lt;br/&gt;协议转换]
+        M5[插件系统&lt;br/&gt;前端微前端]
+    end
+    
+    D1 --&gt; M1
+    D2 --&gt; M2
+    D3 --&gt; M3
+    D4 --&gt; M4
+    D5 --&gt; M5
+</pre>
+<h3>智能体扩展详细设计</h3>
+<pre class="hljs"><code><span class="hljs-comment"># 新增智能体的完整流程</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">NewAgent</span>(<span class="hljs-title class_ inherited__">BaseAgent</span>):
+    <span class="hljs-string">&quot;&quot;&quot;
+    扩展示例：新增一个&quot;智能字幕生成智能体&quot;
+    只需继承 BaseAgent，声明能力，实现 execute 即可。
+    &quot;&quot;&quot;</span>
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">declare_capabilities</span>(<span class="hljs-params">self</span>) -&gt; CapabilityDeclaration:
+        <span class="hljs-keyword">return</span> CapabilityDeclaration(
+            agent_name=<span class="hljs-string">&quot;subtitle_agent&quot;</span>,
+            agent_version=<span class="hljs-string">&quot;1.0.0&quot;</span>,
+            supported_intents=[
+                IntentType.SUBTITLE_GENERATE,
+                IntentType.SUBTITLE_TRANSLATE,
+                IntentType.SUBTITLE_STYLE
+            ],
+            input_schema={
+                <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>,
+                <span class="hljs-string">&quot;properties&quot;</span>: {
+                    <span class="hljs-string">&quot;asset_id&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>},
+                    <span class="hljs-string">&quot;language&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>, <span class="hljs-string">&quot;enum&quot;</span>: [<span class="hljs-string">&quot;zh&quot;</span>, <span class="hljs-string">&quot;en&quot;</span>]},
+                    <span class="hljs-string">&quot;style&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>, <span class="hljs-string">&quot;enum&quot;</span>: [<span class="hljs-string">&quot;burn_in&quot;</span>, <span class="hljs-string">&quot;soft&quot;</span>]}
+                },
+                <span class="hljs-string">&quot;required&quot;</span>: [<span class="hljs-string">&quot;asset_id&quot;</span>]
+            },
+            output_schema={
+                <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>,
+                <span class="hljs-string">&quot;properties&quot;</span>: {
+                    <span class="hljs-string">&quot;subtitle_file&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;string&quot;</span>},
+                    <span class="hljs-string">&quot;subtitle_track&quot;</span>: {<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;object&quot;</span>}
+                }
+            },
+            risk_level=RiskLevel.LOW,
+            supports_incremental=<span class="hljs-literal">True</span>
+        )
+    
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">execute</span>(<span class="hljs-params">self, params: <span class="hljs-type">Dict</span>, context: ExecutionContext</span>) -&gt; ExecutionResult:
+        <span class="hljs-comment"># 实现字幕生成逻辑</span>
+        ...
+</code></pre>
+<h3>策略模式扩展（可插拔）</h3>
+<pre class="hljs"><code><span class="hljs-comment"># 匹配策略接口</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">MatchingStrategy</span>(<span class="hljs-title class_ inherited__">ABC</span>):
+    <span class="hljs-string">&quot;&quot;&quot;匹配策略抽象接口&quot;&quot;&quot;</span>
+    
+<span class="hljs-meta">    @abstractmethod</span>
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">match</span>(<span class="hljs-params">
+        self,
+        query: <span class="hljs-built_in">str</span>,
+        candidates: <span class="hljs-type">List</span>[Segment],
+        constraints: <span class="hljs-type">Dict</span>
+    </span>) -&gt; <span class="hljs-type">List</span>[MatchCandidate]:
+        <span class="hljs-keyword">pass</span>
+
+<span class="hljs-comment"># 多种策略实现</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">TagMatchingStrategy</span>(<span class="hljs-title class_ inherited__">MatchingStrategy</span>):
+    <span class="hljs-string">&quot;&quot;&quot;标签匹配策略&quot;&quot;&quot;</span>
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">match</span>(<span class="hljs-params">self, query: <span class="hljs-built_in">str</span>, candidates: <span class="hljs-type">List</span>[Segment], constraints: <span class="hljs-type">Dict</span></span>) -&gt; <span class="hljs-type">List</span>[MatchCandidate]:
+        <span class="hljs-comment"># 基于标签的精确匹配</span>
+        ...
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">VectorMatchingStrategy</span>(<span class="hljs-title class_ inherited__">MatchingStrategy</span>):
+    <span class="hljs-string">&quot;&quot;&quot;向量语义匹配策略&quot;&quot;&quot;</span>
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">match</span>(<span class="hljs-params">self, query: <span class="hljs-built_in">str</span>, candidates: <span class="hljs-type">List</span>[Segment], constraints: <span class="hljs-type">Dict</span></span>) -&gt; <span class="hljs-type">List</span>[MatchCandidate]:
+        <span class="hljs-comment"># 基于向量相似度的语义匹配</span>
+        ...
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">HybridMatchingStrategy</span>(<span class="hljs-title class_ inherited__">MatchingStrategy</span>):
+    <span class="hljs-string">&quot;&quot;&quot;混合匹配策略（组合）&quot;&quot;&quot;</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, strategies: <span class="hljs-type">List</span>[MatchingStrategy], weights: <span class="hljs-type">List</span>[<span class="hljs-built_in">float</span>]</span>):
+        <span class="hljs-variable language_">self</span>._strategies = strategies
+        <span class="hljs-variable language_">self</span>._weights = weights
+    
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">match</span>(<span class="hljs-params">self, query: <span class="hljs-built_in">str</span>, candidates: <span class="hljs-type">List</span>[Segment], constraints: <span class="hljs-type">Dict</span></span>) -&gt; <span class="hljs-type">List</span>[MatchCandidate]:
+        <span class="hljs-comment"># 综合多种策略的结果</span>
+        ...
+
+<span class="hljs-comment"># 运行时切换</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">MatcherAgent</span>(<span class="hljs-title class_ inherited__">BaseAgent</span>):
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, config: <span class="hljs-type">Dict</span></span>):
+        <span class="hljs-variable language_">self</span>._strategy = <span class="hljs-variable language_">self</span>._create_strategy(config.get(<span class="hljs-string">&quot;matching_strategy&quot;</span>, <span class="hljs-string">&quot;hybrid&quot;</span>))
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">set_strategy</span>(<span class="hljs-params">self, strategy: MatchingStrategy</span>):
+        <span class="hljs-string">&quot;&quot;&quot;运行时切换匹配策略&quot;&quot;&quot;</span>
+        <span class="hljs-variable language_">self</span>._strategy = strategy
+</code></pre>
+<h3>事件驱动扩展</h3>
+<pre class="hljs"><code><span class="hljs-comment"># 事件系统支持松耦合扩展</span>
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">EventTypes</span>:
+    <span class="hljs-comment"># 系统事件</span>
+    SESSION_CREATED = <span class="hljs-string">&quot;session.created&quot;</span>
+    SESSION_DESTROYED = <span class="hljs-string">&quot;session.destroyed&quot;</span>
+    
+    <span class="hljs-comment"># 状态事件</span>
+    STATE_UPDATED = <span class="hljs-string">&quot;state.updated&quot;</span>
+    SLOT_ADDED = <span class="hljs-string">&quot;slot.added&quot;</span>
+    SLOT_MODIFIED = <span class="hljs-string">&quot;slot.modified&quot;</span>
+    
+    <span class="hljs-comment"># 智能体事件</span>
+    AGENT_EXECUTED = <span class="hljs-string">&quot;agent.executed&quot;</span>
+    AGENT_ERROR = <span class="hljs-string">&quot;agent.error&quot;</span>
+    
+    <span class="hljs-comment"># 任务事件</span>
+    TASK_STARTED = <span class="hljs-string">&quot;task.started&quot;</span>
+    TASK_COMPLETED = <span class="hljs-string">&quot;task.completed&quot;</span>
+    TASK_FAILED = <span class="hljs-string">&quot;task.failed&quot;</span>
+
+<span class="hljs-comment"># 事件处理器注册（扩展点）</span>
+<span class="hljs-meta">@event_handler(<span class="hljs-params">EventTypes.SLOT_MODIFIED</span>)</span>
+<span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">on_slot_modified</span>(<span class="hljs-params">event: Event</span>):
+    <span class="hljs-string">&quot;&quot;&quot;当槽位修改时，自动触发重新匹配&quot;&quot;&quot;</span>
+    <span class="hljs-keyword">if</span> event.data.get(<span class="hljs-string">&quot;auto_rematch&quot;</span>, <span class="hljs-literal">True</span>):
+        <span class="hljs-keyword">await</span> trigger_rematch(event.session_id, event.data[<span class="hljs-string">&quot;slot_id&quot;</span>])
+
+<span class="hljs-meta">@event_handler(<span class="hljs-params">EventTypes.TASK_COMPLETED</span>)</span>
+<span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">on_task_completed</span>(<span class="hljs-params">event: Event</span>):
+    <span class="hljs-string">&quot;&quot;&quot;任务完成时，自动生成通知&quot;&quot;&quot;</span>
+    <span class="hljs-keyword">await</span> send_notification(event.session_id, event.data)
+</code></pre>
+<h2>性能设计深化</h2>
+<h3>性能优化全景</h3>
+<pre class="mermaid">graph TB
+    subgraph 优化层级[性能优化五层]
+        L1[接入层优化&lt;br/&gt;连接池/CDN/压缩]
+        L2[应用层优化&lt;br/&gt;异步/缓存/批处理]
+        L3[智能体层优化&lt;br/&gt;并行/增量/预热]
+        L4[服务层优化&lt;br/&gt;连接复用/流式处理]
+        L5[数据层优化&lt;br/&gt;索引/分区/缓存]
+    end
+    
+    subgraph 关键指标[性能指标]
+        M1[API 响应时间&lt;br/&gt;P95 &lt; 200ms]
+        M2[视频分析&lt;br/&gt;&lt; 30s/分钟]
+        M3[匹配响应&lt;br/&gt;&lt; 500ms/槽位]
+        M4[渲染速度&lt;br/&gt;GPU &lt; 2min/5min]
+        M5[并发支撑&lt;br/&gt;&gt; 100 用户]
+    end
+    
+    L1 --&gt; M1
+    L2 --&gt; M1
+    L3 --&gt; M2 &amp; M3
+    L4 --&gt; M4
+    L5 --&gt; M1
+</pre>
+<h3>缓存策略设计</h3>
+<pre class="hljs"><code><span class="hljs-keyword">from</span> functools <span class="hljs-keyword">import</span> lru_cache
+<span class="hljs-keyword">from</span> typing <span class="hljs-keyword">import</span> <span class="hljs-type">Dict</span>, <span class="hljs-type">Any</span>
+<span class="hljs-keyword">import</span> hashlib
+<span class="hljs-keyword">import</span> json
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">CacheStrategy</span>:
+    <span class="hljs-string">&quot;&quot;&quot;多级缓存策略&quot;&quot;&quot;</span>
+    
+    <span class="hljs-comment"># L1: 内存缓存（进程内，最快）</span>
+<span class="hljs-meta">    @lru_cache(<span class="hljs-params">maxsize=<span class="hljs-number">1000</span></span>)</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">_cache_intent_result</span>(<span class="hljs-params">self, text_hash: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Optional</span>[<span class="hljs-type">Dict</span>]:
+        <span class="hljs-string">&quot;&quot;&quot;缓存意图识别结果&quot;&quot;&quot;</span>
+        <span class="hljs-keyword">pass</span>
+    
+    <span class="hljs-comment"># L2: Redis 缓存（分布式共享）</span>
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">get_analysis_result</span>(<span class="hljs-params">self, asset_id: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-type">Optional</span>[AnalysisResult]:
+        <span class="hljs-string">&quot;&quot;&quot;缓存视频分析结果，避免重复分析&quot;&quot;&quot;</span>
+        cache_key = <span class="hljs-string">f&quot;analysis:<span class="hljs-subst">{asset_id}</span>&quot;</span>
+        cached = <span class="hljs-keyword">await</span> <span class="hljs-variable language_">self</span>._redis.get(cache_key)
+        <span class="hljs-keyword">if</span> cached:
+            <span class="hljs-keyword">return</span> AnalysisResult.from_json(cached)
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+    
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">set_analysis_result</span>(<span class="hljs-params">self, asset_id: <span class="hljs-built_in">str</span>, result: AnalysisResult</span>):
+        <span class="hljs-string">&quot;&quot;&quot;缓存视频分析结果，TTL 7天&quot;&quot;&quot;</span>
+        cache_key = <span class="hljs-string">f&quot;analysis:<span class="hljs-subst">{asset_id}</span>&quot;</span>
+        <span class="hljs-keyword">await</span> <span class="hljs-variable language_">self</span>._redis.setex(cache_key, <span class="hljs-number">604800</span>, result.to_json())
+    
+    <span class="hljs-comment"># L3: 数据库缓存（持久化）</span>
+    <span class="hljs-comment"># 由 Checkpointer 实现</span>
+</code></pre>
+<h3>并行处理设计</h3>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> asyncio
+<span class="hljs-keyword">from</span> concurrent.futures <span class="hljs-keyword">import</span> ThreadPoolExecutor, ProcessPoolExecutor
+
+<span class="hljs-keyword">class</span> <span class="hljs-title class_">ParallelProcessor</span>:
+    <span class="hljs-string">&quot;&quot;&quot;并行处理引擎&quot;&quot;&quot;</span>
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, config: <span class="hljs-type">Dict</span></span>):
+        <span class="hljs-variable language_">self</span>._thread_pool = ThreadPoolExecutor(max_workers=config.get(<span class="hljs-string">&quot;thread_workers&quot;</span>, <span class="hljs-number">10</span>))
+        <span class="hljs-variable language_">self</span>._process_pool = ProcessPoolExecutor(max_workers=config.get(<span class="hljs-string">&quot;process_workers&quot;</span>, <span class="hljs-number">4</span>))
+    
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">parallel_analyze</span>(<span class="hljs-params">self, assets: <span class="hljs-type">List</span>[VideoAsset]</span>) -&gt; <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, AnalysisResult]:
+        <span class="hljs-string">&quot;&quot;&quot;并行分析多个视频&quot;&quot;&quot;</span>
+        tasks = []
+        <span class="hljs-keyword">for</span> asset <span class="hljs-keyword">in</span> assets:
+            <span class="hljs-comment"># 每个视频分析任务独立执行</span>
+            task = asyncio.create_task(<span class="hljs-variable language_">self</span>._analyze_single(asset))
+            tasks.append(task)
+        
+        <span class="hljs-comment"># 并发执行所有分析任务</span>
+        results = <span class="hljs-keyword">await</span> asyncio.gather(*tasks, return_exceptions=<span class="hljs-literal">True</span>)
+        <span class="hljs-keyword">return</span> <span class="hljs-variable language_">self</span>._collect_results(assets, results)
+    
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">batch_match</span>(<span class="hljs-params">self, slots: <span class="hljs-type">List</span>[Slot], candidates: <span class="hljs-type">List</span>[Segment]</span>) -&gt; <span class="hljs-type">List</span>[MatchResult]:
+        <span class="hljs-string">&quot;&quot;&quot;批量匹配（每个槽位独立匹配）&quot;&quot;&quot;</span>
+        semaphore = asyncio.Semaphore(<span class="hljs-variable language_">self</span>._config.get(<span class="hljs-string">&quot;max_concurrent_matches&quot;</span>, <span class="hljs-number">5</span>))
+        
+        <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">match_with_limit</span>(<span class="hljs-params">slot: Slot</span>):
+            <span class="hljs-keyword">async</span> <span class="hljs-keyword">with</span> semaphore:
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">await</span> <span class="hljs-variable language_">self</span>._match_single(slot, candidates)
+        
+        tasks = [match_with_limit(slot) <span class="hljs-keyword">for</span> slot <span class="hljs-keyword">in</span> slots]
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">await</span> asyncio.gather(*tasks)
+</code></pre>
+<h3>数据流优化</h3>
+<pre class="mermaid">graph LR
+    subgraph 流式处理[流式数据处理]
+        U[用户上传] --&gt; B[分片接收]
+        B --&gt; S[流式存储]
+        S --&gt; A[边收边分析]
+        A --&gt; R[实时结果]
+    end
+    
+    subgraph 异步任务[异步任务队列]
+        T1[分析任务] --&gt; Q[Redis Queue]
+        T2[匹配任务] --&gt; Q
+        T3[合成任务] --&gt; Q
+        Q --&gt; W[Worker Pool]
+        W --&gt; R2[结果回调]
+    end
+    
+    subgraph 增量更新[增量更新]
+        I1[局部修改] --&gt; D[Diff 计算]
+        D --&gt; P[仅处理变更部分]
+        P --&gt; U2[状态合并]
+    end
+</pre>
+<h3>资源隔离与配额</h3>
+<pre class="hljs"><code><span class="hljs-keyword">class</span> <span class="hljs-title class_">ResourceManager</span>:
+    <span class="hljs-string">&quot;&quot;&quot;资源管理与隔离&quot;&quot;&quot;</span>
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">__init__</span>(<span class="hljs-params">self, config: <span class="hljs-type">Dict</span></span>):
+        <span class="hljs-variable language_">self</span>._user_quotas: <span class="hljs-type">Dict</span>[<span class="hljs-built_in">str</span>, UserQuota] = {}
+        <span class="hljs-variable language_">self</span>._global_limits = config.get(<span class="hljs-string">&quot;global_limits&quot;</span>, {})
+    
+    <span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">acquire</span>(<span class="hljs-params">self, user_id: <span class="hljs-built_in">str</span>, resource: ResourceType, amount: <span class="hljs-built_in">int</span></span>) -&gt; <span class="hljs-built_in">bool</span>:
+        <span class="hljs-string">&quot;&quot;&quot;申请资源，检查配额&quot;&quot;&quot;</span>
+        quota = <span class="hljs-variable language_">self</span>._user_quotas.get(user_id)
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> quota:
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+        
+        <span class="hljs-comment"># 检查用户配额</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> quota.has_remaining(resource, amount):
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+        
+        <span class="hljs-comment"># 检查全局限制</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> <span class="hljs-variable language_">self</span>._check_global_limit(resource, amount):
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">False</span>
+        
+        quota.consume(resource, amount)
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">True</span>
+    
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">release</span>(<span class="hljs-params">self, user_id: <span class="hljs-built_in">str</span>, resource: ResourceType, amount: <span class="hljs-built_in">int</span></span>):
+        <span class="hljs-string">&quot;&quot;&quot;释放资源&quot;&quot;&quot;</span>
+        quota = <span class="hljs-variable language_">self</span>._user_quotas.get(user_id)
+        <span class="hljs-keyword">if</span> quota:
+            quota.release(resource, amount)
+</code></pre>
+<hr>
+<h2>技术选型确认</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">层级</th>
+<th style="text-align:left">组件</th>
+<th style="text-align:left">选型</th>
+<th style="text-align:left">理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">智能体编排</td>
+<td style="text-align:left">框架</td>
+<td style="text-align:left">LangGraph</td>
+<td style="text-align:left">支持状态机、循环、中断、检查点</td>
+</tr>
+<tr>
+<td style="text-align:left">Web 框架</td>
+<td style="text-align:left">后端</td>
+<td style="text-align:left">FastAPI</td>
+<td style="text-align:left">高性能、异步支持、自动文档</td>
+</tr>
+<tr>
+<td style="text-align:left">Web 框架</td>
+<td style="text-align:left">前端</td>
+<td style="text-align:left">React + Zustand</td>
+<td style="text-align:left">组件化、轻量状态管理</td>
+</tr>
+<tr>
+<td style="text-align:left">实时通信</td>
+<td style="text-align:left">协议</td>
+<td style="text-align:left">WebSocket</td>
+<td style="text-align:left">双向通信、低延迟</td>
+</tr>
+<tr>
+<td style="text-align:left">LLM</td>
+<td style="text-align:left">服务</td>
+<td style="text-align:left">OpenAI API / Qwen</td>
+<td style="text-align:left">灵活切换，支持本地部署</td>
+</tr>
+<tr>
+<td style="text-align:left">视频分析</td>
+<td style="text-align:left">标注</td>
+<td style="text-align:left">CLIP</td>
+<td style="text-align:left">零样本分类，无需训练</td>
+</tr>
+<tr>
+<td style="text-align:left">视频分析</td>
+<td style="text-align:left">分割</td>
+<td style="text-align:left">PySceneDetect</td>
+<td style="text-align:left">轻量、速度快</td>
+</tr>
+<tr>
+<td style="text-align:left">视频合成</td>
+<td style="text-align:left">引擎</td>
+<td style="text-align:left">FFmpeg</td>
+<td style="text-align:left">功能强大、生态成熟</td>
+</tr>
+<tr>
+<td style="text-align:left">数据库</td>
+<td style="text-align:left">主存储</td>
+<td style="text-align:left">SQLite → PostgreSQL</td>
+<td style="text-align:left">渐进式数据方案</td>
+</tr>
+<tr>
+<td style="text-align:left">缓存/队列</td>
+<td style="text-align:left">内存</td>
+<td style="text-align:left">Redis</td>
+<td style="text-align:left">高性能、支持多种数据结构</td>
+</tr>
+<tr>
+<td style="text-align:left">文件存储</td>
+<td style="text-align:left">对象存储</td>
+<td style="text-align:left">本地 → MinIO</td>
+<td style="text-align:left">S3 兼容，可自建</td>
+</tr>
+<tr>
+<td style="text-align:left">向量检索</td>
+<td style="text-align:left">引擎</td>
+<td style="text-align:left">Milvus Lite</td>
+<td style="text-align:left">轻量向量数据库</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测性</td>
+<td style="text-align:left">日志</td>
+<td style="text-align:left">structlog</td>
+<td style="text-align:left">结构化日志</td>
+</tr>
+<tr>
+<td style="text-align:left">可观测性</td>
+<td style="text-align:left">追踪</td>
+<td style="text-align:left">OpenTelemetry</td>
+<td style="text-align:left">标准化链路追踪</td>
+</tr>
+<tr>
+<td style="text-align:left">部署</td>
+<td style="text-align:left">容器</td>
+<td style="text-align:left">Docker</td>
+<td style="text-align:left">环境一致性</td>
+</tr>
+<tr>
+<td style="text-align:left">部署</td>
+<td style="text-align:left">编排</td>
+<td style="text-align:left">Docker Compose → K8s</td>
+<td style="text-align:left">渐进式部署</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>开发阶段划分</h2>
+<pre class="mermaid">gantt
+    title PenClip 开发阶段规划
+    dateFormat  YYYY-MM-DD
+    section 第一阶段：骨架
+    项目初始化           :a1, 2026-08-01, 3d
+    数据结构定义         :a2, after a1, 2d
+    中枢框架实现         :a3, after a2, 5d
+    能力注册机制         :a4, after a3, 3d
+    section 第二阶段：智能体
+    视频分析智能体       :b1, after a4, 5d
+    规划师智能体         :b2, after b1, 5d
+    片段匹配智能体       :b3, after b2, 5d
+    视频合成智能体       :b4, after b3, 5d
+    section 第三阶段：接口
+    CLI 接口             :c1, after b4, 3d
+    REST API             :c2, after b4, 5d
+    WebSocket 服务       :c3, after c2, 3d
+    前端基础界面         :c4, after c3, 7d
+    section 第四阶段：优化
+    增量操作支持         :d1, after c4, 4d
+    可观测性集成         :d2, after c4, 3d
+    端到端测试           :d3, after d1, 3d
+    文档完善             :d4, after d3, 3d
+</pre>
+<h2>版本与验证说明</h2>
+<p>本文属于项目文档而不是永久不变的 API 契约。以下情况发生时，应重新核对源码或发布说明：</p>
+<ol>
+<li class="lvl-3">
+<p>项目版本升级，尤其是公开 API、配置模型、存储实现和工作流发生变化；</p>
+</li>
+<li class="lvl-3">
+<p>本文中的默认值、性能数据或示例依赖外部服务版本；</p>
+</li>
+<li class="lvl-3">
+<p>运行环境与本文案例不同，例如 Python 版本、Redis/数据库版本、模型供应商或操作系统不同。</p>
+</li>
+</ol>
+<p>如果你要把本文内容用于生产环境，请优先使用仓库当前版本的 README、源码、测试和 Release 记录进行最终确认。</p>
+
+      </article>
+    </main>
+  </div>
+  <footer>
+    <a href="https://clip.helpenx.com" target="_blank" rel="noopener">PenClip 官网</a>·
+    <a href="https://github.com/neopen/video-clip-agent" target="_blank" rel="noopener">GitHub</a>·
+    <a href="index.html">文档中心</a>
+    <div style="margin-top:6px">© 2026 helpenx.com · 文档基线以文中标注版本对应的源码为准</div>
+  </footer>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+  </script>
+</body>
+</html>
