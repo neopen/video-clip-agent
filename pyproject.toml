@@ -113,9 +113,9 @@ all = [
 
 # 项目 URLs
 [project.urls]
-Homepage = "https://github.com/neopen/video-clip-agent"
+Homepage = "https://clip.helpenx.com/"
 Repository = "https://github.com/neopen/video-clip-agent.git"
-Documentation = "https://clip.pengline.cn"
+Documentation = "https://clip.helpenx.com/docs/"
 Issues = "https://github.com/neopen/video-clip-agent/issues"
 Changelog = "https://github.com/neopen/video-clip-agent/blob/main/CHANGELOG.md"
 

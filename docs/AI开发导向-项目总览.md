@@ -410,7 +410,7 @@ V0.1 (当前)          V0.2              V0.3              V1.0           V2.0
 
 ### 6.1 命名空间
 
-所有 import 统一使用 `penclip.*` 前缀。**禁止**使用 `penshot.*` / `neopen.*` / `config.*` / `utils.*` 等旧前缀。
+所有 import 统一使用 `penclip.*` 前缀。
 
 ```python
 # 正确
