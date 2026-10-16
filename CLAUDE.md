@@ -44,7 +44,7 @@ from penclip.domain.value_objects.intent import IntentType  # 真实定义处
 - `AssemblyState`（Pydantic）：全局会话状态（assets/slots/analysis_results/match_results/global_context/...）
 
 ## 开发约定
-- 所有 import 统一 `penclip.*` 前缀；**禁止** `penshot.*`/`neopen.*` 旧前缀
+- 所有 import 统一 `penclip.*` 前缀；
 - 值对象用 `dataclass`+`enum`；实体与 API 模型用 Pydantic `BaseModel`
 - 工具函数返回 `Dict` 带 `success` 字段、不抛异常；API 层用 `HTTPException`
 - 用 `penclip.logger` 的 `debug/info/warning/error`，禁止 `print()`
