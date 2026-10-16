@@ -1,0 +1,96 @@
+name: Upload Python Package  # 工作流名称：打包并发布 Python 包至 PyPI
+
+on:
+  release:
+    types: [published]  # GitHub Release 正式发布时自动触发
+
+  # 允许手动发布指定版本
+  # Actions → Upload Python Package → Run workflow
+  # 填写 tag，例如：v0.3.7
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v0.3.7"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================
+  # 构建 Job：生成 sdist (.tar.gz) 和 wheel (.whl)
+  # ============================================================
+  release-build:
+    name: Build release distributions
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出 Release 对应的源码
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+
+      # 2. 配置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      # 3. 安装 Python 打包工具
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      # 4. 构建 sdist 和 wheel
+      - name: Build distributions
+        run: |
+          python -m build
+
+      # 5. 检查 PyPI 包元数据
+      - name: Check package metadata
+        run: |
+          python -m twine check dist/*
+
+      # 6. 上传构建产物
+      - name: Upload distributions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+          retention-days: 7
+
+  # ============================================================
+  # 发布 Job：通过 PyPI Trusted Publishing 发布
+  # ============================================================
+  pypi-publish:
+    name: Publish package to PyPI
+    needs:
+      - release-build
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/penclip
+
+    steps:
+      # 1. 下载构建产物
+      - name: Download release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      # 2. 发布到 PyPI
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
