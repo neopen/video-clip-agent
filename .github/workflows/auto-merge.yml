@@ -3,21 +3,64 @@ name: Auto Merge PR
 on:
   pull_request_target:
     types: [labeled, unlabeled, synchronize, opened, edited, ready_for_review]
+
   workflow_run:
-    workflows: ["CI Checks"]  # 你的 CI workflow 名称
+    workflows: ["CI Checks"]
     types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  actions: read
 
 jobs:
   automerge:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'pull_request_target'
+
+    # PR 事件时执行；CI 事件时仅在成功后执行
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success')
+
     steps:
-      - name: Auto-merge PR
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          merge-method: squash  # 可选: merge, squash, rebase
+      # workflow_run 事件需要从关联的 PR 中获取编号。
+      # 这里使用 GitHub CLI 查询 PR，而不是依赖本地 Git 分支。
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
+            if [ -z "$PR_NUMBER" ]; then
+              echo "No pull request number found."
+              exit 1
+            fi
+
+            gh pr merge "$PR_NUMBER" \
+              --repo "$GH_REPO" \
+              --auto \
+              --squash
+          else
+            PR_NUMBERS=$(gh api \
+              "repos/$GH_REPO/commits/$HEAD_SHA/pulls" \
+              --jq '.[].number')
+
+            if [ -z "$PR_NUMBERS" ]; then
+              echo "No pull request found for CI commit $HEAD_SHA."
+              exit 0
+            fi
+
+            while read -r PR; do
+              [ -z "$PR" ] && continue
+
+              gh pr merge "$PR" \
+                --repo "$GH_REPO" \
+                --auto \
+                --squash
+            done <<< "$PR_NUMBERS"
+          fi
