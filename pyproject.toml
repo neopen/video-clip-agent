@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "penclip"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI-powered video mix clipping agent — star hub architecture with multi-agent collaboration"
 readme = "README.md"
 authors = [
