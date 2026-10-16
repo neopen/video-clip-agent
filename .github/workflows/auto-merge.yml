@@ -3,7 +3,6 @@ name: Auto Merge PR
 on:
   pull_request_target:
     types: [labeled, unlabeled, synchronize, opened, edited, ready_for_review]
-
   workflow_run:
     workflows: ["CI Checks"]
     types: [completed]
