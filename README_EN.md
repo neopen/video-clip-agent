@@ -16,20 +16,20 @@ Layered structure (dependency direction: outer → inner, inner has zero reverse
 | :-- | :-- | :-- |
 | Domain | `domain/` | Entities (Pydantic) + value objects (dataclass/enum) + repository interfaces |
 | Application | `core/` | Hub dispatch / orchestration / state / event bus |
-| Agents | `agents/` | `BaseAgent` + Planner/Analyzer/Matcher/Composer |
-| Services | `services/` | LLM/CLIP/FFmpeg/scene detection/vector search |
-| Infrastructure | `infrastructure/` | PostgreSQL/MinIO/Redis repositories and caches |
+| Agents | `agents/` | `BaseAgent` + Planner/Asset/Analyzer/Matcher/Composer/State |
+| Services | `services/` | Scene splitting / FFmpeg / file parsing are live; LLM and CLIP vector search land in V0.2 |
+| Infrastructure | `infrastructure/` | PostgreSQL/MinIO/Redis repositories and caches (in-memory fakes in V0.1) |
 | Interface | `api/` + `cli/` | REST v1 / middleware / WebSocket / CLI |
 
-**Current version**: V0.1 (star-hub skeleton) — domain model and hub dispatch implemented; `LangGraph` orchestration, `services/`, and `infrastructure/` are mostly V0.2 stubs. See [Roadmap](#roadmap).
+**Current version**: V0.1 (composition loop closed) — register assets → scene analysis → slot planning → tag matching → concat composition runs end to end over both the console and REST; `LangGraph` orchestration, `infrastructure/` and semantic vector matching remain V0.2 stubs. See [Roadmap](#roadmap).
 
 ## Core Features
 
 - **Interactive console (REPL)**: real-time human-in-the-loop — clarification dialogue, progressive refinement, and confirmation gates for high-risk operations
-- **Star-hub dispatch**: command parsing → intent recognition (30+ intents) → risk assessment → capability routing
+- **Star-hub dispatch**: command parsing → intent recognition (30 intents) → risk assessment → capability routing
 - **Capability registration**: extend functionality by subclassing `BaseAgent` and declaring capabilities — no hub code changes required
 - **Multiple AI providers**: OpenAI / Qwen / DeepSeek / Ollama (local models)
-- **Video processing**: scene detection, semantic annotation (CLIP), speech recognition, emotion analysis, object detection, FFmpeg composition
+- **Video processing**: adaptive scene splitting + visual-statistics tagging → tag-based matching → FFmpeg concat composition; speech-recognition / emotion / object-detection tools exist but are not yet wired into agents
 - **Structured logging**: leveled logs + JSON format + file rotation
 
 ## Quick Start
@@ -52,11 +52,11 @@ python -m venv .venv
 # Linux / macOS
 source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (the project ships pyproject.toml only — there is no requirements.txt)
+pip install -e .
 ```
 
-> For development, install the full dev dependencies: `pip install -e ".[dev]"`
+> For development, install everything at once: `pip install -e ".[dev]"`
 
 ### Configure an AI Provider
 
@@ -109,20 +109,32 @@ python -m penclip.cli.main
 The console supports three interaction modes (one-shot commands / clarification dialogue / progressive refinement) plus confirmation gates for high-risk operations:
 
 ```
-penclip> make a travel vlog, scenery first, food in the middle
-Confirm creating a new timeline plan from this request?
-Confirm? [y/N] y
-[OK] Created timeline with 3 slot(s)
+penclip> E:\videos\travel_01.mp4
+[OK] 已添加素材: travel_01.mp4          # asset registered
 
-penclip> render the final video
-Confirm starting the final render? Cancelling mid-render may leave incomplete output.
+penclip> 做一个旅行 Vlog，风景放开头，美食放中间
+确认根据此需求创建新的时间线规划？
 Confirm? [y/N] y
-[OK] Video rendered to data/output/output.mp4
+[OK] 创建时间线：3 个片段槽位，共 3    # timeline planned
 
-penclip> exit
+penclip> 分析素材
+[OK] 已分析 3 个素材，共 12 个片段      # scene detection + tagging
+
+penclip> 匹配片段
+[OK] 已匹配 3/3 个槽位                  # slots filled
+
+penclip> 合成
+确认开始最终渲染？渲染开始后中途取消可能导致不完整输出。
+Confirm? [y/N] y
+[OK] 已合成 3 个片段 → data\output\composed_output.mp4
+
+penclip> 撤销
+[OK] 已撤销：匹配片段
+
+penclip> pipeline        # one-shot analyze → match → compose (render gate kept)
 ```
 
-> See the [console usage guide](docs/视频混剪智能体-控制台使用指南.md) (Chinese) for full details.
+> Messages are emitted in Chinese; the console currently accepts Chinese and English keywords. See the [console usage guide](docs/视频混剪智能体-控制台使用指南.md) (Chinese) for a full transcript.
 
 ## API Reference
 
@@ -139,25 +151,16 @@ Domain routes (`api/v1/`, prefix `/api/v1`):
 
 | Method | Path | Description |
 | :-- | :-- | :-- |
+| POST | `/api/v1/sessions` | Create a session (optional custom `session_id`) |
+| GET | `/api/v1/sessions/{session_id}` | Session overview: phase / assets / slots / matched_slots / undo_depth |
+| DELETE | `/api/v1/sessions/{session_id}` | Delete a session |
 | POST | `/api/v1/tasks` | Submit a natural-language instruction (async, returns task_id) |
 | GET | `/api/v1/tasks/{task_id}` | Get task status |
-| GET | `/api/v1/tasks/{task_id}/result` | Get task result |
+| GET | `/api/v1/tasks/{task_id}/result` | Get task result (incl. `needs_confirmation`, `suggestions`) |
 | DELETE | `/api/v1/tasks/{task_id}` | Cancel a task |
-| POST | `/api/v1/sessions` | Create a session |
-| GET | `/api/v1/sessions/{session_id}` | Get a session |
-| DELETE | `/api/v1/sessions/{session_id}` | Delete a session |
-| POST | `/api/v1/assets` | Upload/register an asset |
-| GET | `/api/v1/assets/{asset_id}` | Get an asset |
-| GET | `/api/v1/assets/{asset_id}/metadata` | Asset metadata |
-| POST | `/api/v1/assets/{asset_id}/analyze` | Analyze an asset |
-| POST | `/api/v1/timelines` | Create a timeline |
-| GET | `/api/v1/timelines/{timeline_id}` | Get a timeline |
-| PUT | `/api/v1/timelines/{timeline_id}/slots/{slot_id}` | Update a slot |
-| POST | `/api/v1/exports/render` | Start a render export |
-| GET | `/api/v1/exports/{task_id}/status` | Render status |
-| GET | `/api/v1/exports/{task_id}/download` | Download result |
-| POST | `/api/v1/webhooks` | Register a webhook |
-| DELETE | `/api/v1/webhooks/{webhook_id}` | Delete a webhook |
+| POST | `/api/v1/tasks/sessions/{session_id}/confirm` | Release a gated high-risk instruction and resume it |
+| POST | `/api/v1/tasks/sessions/{session_id}/cancel` | Abandon a gated instruction (session state untouched) |
+| * | `/api/v1/{assets,timelines,exports,webhooks}/…` | V0.1 placeholders returning `501` — use `/api/v1/tasks` instead |
 
 ### Usage Example
 
@@ -165,15 +168,19 @@ Domain routes (`api/v1/`, prefix `/api/v1`):
 # Health check
 curl http://localhost:8000/health
 
-# Submit a natural-language instruction (async)
-curl -X POST http://localhost:8000/api/v1/tasks \
+# Create a session, then submit an instruction (async)
+SESSION=$(curl -s -X POST http://localhost:8000/api/v1/sessions | jq -r .session_id)
+curl -s -X POST http://localhost:8000/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"user_input": "Cut the funny parts into a highlight reel", "language": "zh"}'
+  -d "{\"user_input\": \"做个混剪：红色开头，绿色中间，蓝色结尾\", \"session_id\": \"$SESSION\"}"
 # → {"task_id": "...", "session_id": "...", "status": "pending"}
 
-# Query task status / result
-curl http://localhost:8000/api/v1/tasks/{task_id}
-curl http://localhost:8000/api/v1/tasks/{task_id}/result
+# Poll the result; high-risk instructions stop at the confirmation gate
+curl -s http://localhost:8000/api/v1/tasks/{task_id}/result
+# → {"needs_confirmation": true, "confirmation_message": "..."}
+
+# Confirm to resume (returns a new task_id to poll)
+curl -s -X POST http://localhost:8000/api/v1/tasks/sessions/$SESSION/confirm
 ```
 
 > Interactive API docs: http://localhost:8000/docs. The REST async API is a **fallback**; for the primary interaction experience use the [interactive console](docs/视频混剪智能体-控制台使用指南.md).
@@ -186,14 +193,14 @@ See [`.claude/skills/project.md`](.claude/skills/project.md) for the full struct
 src/penclip/
 ├── domain/          # Domain layer: entities / value_objects / repositories (zero deps)
 ├── core/            # Application layer: hub / orchestration / state / event
-├── agents/          # Agents: BaseAgent + Planner/Analyzer/Matcher/Composer
-├── services/        # Services: llm / clip / ffmpeg / scene_detect / vector / file
+├── agents/          # Agents: BaseAgent + Planner/Asset/Analyzer/Matcher/Composer/State
+├── services/        # Services: scene_detect / ffmpeg / file bridged; llm / clip / vector pending
 ├── infrastructure/  # Infrastructure: persistence / cache / messaging
-├── api/             # Interface: v1 / middleware / websocket / schemas
-├── cli/             # CLI (interactive console)
+├── api/             # Interface: v1 / task_backend(neotask) / middleware / websocket / schemas
+├── cli/             # CLI (penclip-cli console)
 ├── plugins/         # Plugin system + Docker sandbox
 ├── hub/ graph/ state/   # ⚠️ Bridge compatibility layer (points to core/, domain/)
-├── client/          # Legacy: multi AI provider clients
+├── llm/             # Legacy: multi AI provider clients
 ├── tools/           # Legacy: 6 video analysis tools
 └── utils/ config/ logger.py   # Legacy: utilities / config / logging
 ```
@@ -202,8 +209,8 @@ src/penclip/
 
 - **Language**: Python 3.9+
 - **Web**: FastAPI + uvicorn (async, auto OpenAPI docs)
-- **AI**: OpenAI / Qwen / DeepSeek / Ollama, LangGraph 1.x + LangGraph Checkpoint
-- **Video**: FFmpeg, OpenCV, PyDub; SpeechRecognition
+- **AI**: OpenAI / Qwen / DeepSeek / Ollama; LangGraph 1.x + Checkpoint are declared dependencies, but V0.1 orchestration is still a pass-through stub
+- **Video**: FFmpeg, OpenCV (custom adaptive scene splitting), PyDub; SpeechRecognition is available but not yet wired into agents
 - **Data**: NumPy, Pandas, Scikit-learn
 - **Queue/Cache**: Redis (multi-process mode)
 - **Code quality**: ruff, black, mypy, pytest, pre-commit
@@ -212,7 +219,7 @@ src/penclip/
 
 | Version | Codename | Core goal | Status |
 | :-- | :-- | :-- | :-- |
-| V0.1 | Star-hub skeleton | DDD layered skeleton + keyword command parsing | **Current** |
+| V0.1 | Composition loop | DDD layers + keyword hub dispatch + end-to-end rendering over console **and** REST | **Current** |
 | V0.2 | Semantic understanding | LLM intent parsing + real LangGraph orchestration + SQLite state | Planned |
 | V0.3 | Visual collaboration | Web UI + multi-agent collaboration + formalized capability registration | Planned |
 | V1.0 | Production-ready | Enterprise capabilities (auth/rate-limit/Postgres/MinIO/K8s) | Future |
@@ -244,10 +251,7 @@ pre-commit install
 | :-- | :-- |
 | [Console usage guide](docs/视频混剪智能体-控制台使用指南.md) | Full interactive console (REPL) usage (Chinese) |
 | [Quick start](docs/视频混剪智能体-快速开始.md) | Illustrated from-zero-to-running guide (Chinese) |
-| [Project summary](docs/视频混剪智能体-项目总结.md) | Design philosophy and core contracts (Chinese) |
-| [Design principles](docs/视频混剪智能体-设计原则.md) | Target architecture and design patterns (Chinese) |
-| [Technical architecture](docs/视频混剪智能体-技术架构.md) | System architecture, human-in-the-loop, data contracts (Chinese) |
-| [Version evolution](docs/视频混剪智能体-版本演进.md) | Version planning and roadmap (Chinese) |
+| [Project summary](docs/视频混剪智能体-项目总结.md) | Design philosophy and core contracts — condenses the original architecture / roadmap / principles / overview docs (Chinese) |
 | [AI development overview](docs/AI开发导向-项目总览.md) | Project overview from an AI developer's perspective (Chinese) |
 | [Project skills](.claude/skills/SKILL.md) | Claude Code skills index (Chinese) |
 

@@ -16,20 +16,20 @@ PenClip 采用 **DDD 分层架构**，顶层为**星型中枢分发模式**（`C
 | :-- | :-- | :-- |
 | 领域层 | `domain/` | 实体（Pydantic）+ 值对象（dataclass/enum）+ 仓储接口 |
 | 应用层 | `core/` | 中枢分发 / 编排 / 状态管理 / 事件总线 |
-| 智能体 | `agents/` | `BaseAgent` + Planner/Analyzer/Matcher/Composer |
-| 服务层 | `services/` | LLM/CLIP/FFmpeg/场景分割/向量检索 |
-| 基础设施 | `infrastructure/` | PostgreSQL/MinIO/Redis 等仓储与缓存 |
+| 智能体 | `agents/` | `BaseAgent` + Planner/Asset/Analyzer/Matcher/Composer/State |
+| 服务层 | `services/` | 场景分割 / FFmpeg / 文件解析已接通；LLM / CLIP 向量检索待 V0.2 |
+| 基础设施 | `infrastructure/` | PostgreSQL/MinIO/Redis 等仓储与缓存（V0.1 为内存/假实现） |
 | 接入层 | `api/` + `cli/` | REST v1 / 中间件 / WebSocket / CLI |
 
-**当前版本**：V0.1（星型骨架）—— 领域模型与中枢分发已实现，`LangGraph` 编排、`services/`、`infrastructure/` 多为 V0.2 占位 stub。详见 [版本路线](#版本路线)。
+**当前版本**：V0.1（出片闭环）—— 素材登记 → 场景分析 → 槽位规划 → 标签匹配 → concat 合成已端到端跑通（控制台与 REST 双通道）；`LangGraph` 编排、`infrastructure/`、语义向量匹配仍为 V0.2 占位 stub。详见 [版本路线](#版本路线)。
 
 ## 核心特性
 
 - **交互式控制台（REPL）**：实时人机协同——澄清式对话、渐进式细化、高风险操作确认中断
-- **星型中枢分发**：命令解析 → 意图识别（30+ 意图枚举）→ 风险评估 → 能力路由
+- **星型中枢分发**：命令解析 → 意图识别（30 个意图枚举）→ 风险评估 → 能力路由
 - **能力注册机制**：新增功能继承 `BaseAgent` 并声明能力，无需修改中枢代码
 - **多 AI 提供商**：OpenAI / 通义千问 Qwen / DeepSeek / Ollama（本地模型）
-- **视频处理**：场景检测、语义标注（CLIP）、语音识别、情绪分析、物体检测、FFmpeg 合成
+- **视频处理**：场景切分（自适应阈值）+ 视觉统计标签 → 标签匹配 → FFmpeg concat 合成；语音识别 / 情绪分析 / 物体检测工具已就位，待接入智能体
 - **结构化日志**：分级日志 + JSON 格式 + 文件轮转
 
 ## 快速开始
@@ -52,11 +52,11 @@ python -m venv .venv
 # Linux / macOS
 source .venv/bin/activate
 
-# 安装依赖
-pip install -r requirements.txt
+# 安装依赖（本项目只有 pyproject.toml，没有 requirements.txt）
+pip install -e .
 ```
 
-> 开发环境可安装完整开发依赖：`pip install -e ".[dev]"`
+> 开发环境可一次装齐开发依赖：`pip install -e ".[dev]"`
 
 ### 配置 AI 提供商
 
@@ -109,17 +109,30 @@ python -m penclip.cli.main
 控制台支持三种交互模式（一次性指令 / 澄清式对话 / 渐进式细化）与高风险操作确认中断。示例：
 
 ```
+penclip> E:\videos\travel_01.mp4
+[OK] 已添加素材: travel_01.mp4
+
 penclip> 做一个旅行 Vlog，风景放开头，美食放中间
 确认根据此需求创建新的时间线规划？
 确认执行? [y/N] y
-[OK] Created timeline with 3 slot(s)
+[OK] 创建时间线：3 个片段槽位，共 3 个
+  建议：下一步：分析素材 → 匹配片段 → 合成（也可用 pipeline 一次跑完）
 
-penclip> 最终渲染
+penclip> 分析素材
+[OK] 已分析 3 个素材，共 12 个片段
+
+penclip> 匹配片段
+[OK] 已匹配 3/3 个槽位
+
+penclip> 合成
 确认开始最终渲染？渲染开始后中途取消可能导致不完整输出。
 确认执行? [y/N] y
-[OK] Video rendered to data/output/output.mp4
+[OK] 已合成 3 个片段 → data\output\composed_output.mp4
 
-penclip> exit
+penclip> 撤销
+[OK] 已撤销：匹配片段
+
+penclip> pipeline        # 一键跑完 分析 → 匹配 → 合成（仍保留确认门）
 ```
 
 > 完整用法见 [控制台使用指南](docs/视频混剪智能体-控制台使用指南.md)。
@@ -139,25 +152,16 @@ penclip> exit
 
 | 方法 | 路径 | 说明 |
 | :-- | :-- | :-- |
+| POST | `/api/v1/sessions` | 创建会话（可自带 `session_id`） |
+| GET | `/api/v1/sessions/{session_id}` | 会话概览：phase / assets / slots / matched_slots / undo_depth |
+| DELETE | `/api/v1/sessions/{session_id}` | 删除会话 |
 | POST | `/api/v1/tasks` | 提交自然语言指令（异步，返回 task_id） |
 | GET | `/api/v1/tasks/{task_id}` | 查询任务状态 |
-| GET | `/api/v1/tasks/{task_id}/result` | 获取任务结果 |
+| GET | `/api/v1/tasks/{task_id}/result` | 获取任务结果（含 `needs_confirmation`、`suggestions`） |
 | DELETE | `/api/v1/tasks/{task_id}` | 取消任务 |
-| POST | `/api/v1/sessions` | 创建会话 |
-| GET | `/api/v1/sessions/{session_id}` | 查询会话 |
-| DELETE | `/api/v1/sessions/{session_id}` | 删除会话 |
-| POST | `/api/v1/assets` | 上传/注册素材 |
-| GET | `/api/v1/assets/{asset_id}` | 查询素材 |
-| GET | `/api/v1/assets/{asset_id}/metadata` | 素材元数据 |
-| POST | `/api/v1/assets/{asset_id}/analyze` | 分析素材 |
-| POST | `/api/v1/timelines` | 创建时间线 |
-| GET | `/api/v1/timelines/{timeline_id}` | 查询时间线 |
-| PUT | `/api/v1/timelines/{timeline_id}/slots/{slot_id}` | 更新槽位 |
-| POST | `/api/v1/exports/render` | 发起渲染导出 |
-| GET | `/api/v1/exports/{task_id}/status` | 渲染状态 |
-| GET | `/api/v1/exports/{task_id}/download` | 下载结果 |
-| POST | `/api/v1/webhooks` | 注册 Webhook |
-| DELETE | `/api/v1/webhooks/{webhook_id}` | 删除 Webhook |
+| POST | `/api/v1/tasks/sessions/{session_id}/confirm` | 确认挂起的高风险指令并续跑 |
+| POST | `/api/v1/tasks/sessions/{session_id}/cancel` | 放弃挂起指令 |
+| * | `/api/v1/{assets,timelines,exports,webhooks}/…` | V0.1 占位，返回 `501`，请改用 `/api/v1/tasks` |
 
 ### 使用示例
 
@@ -165,15 +169,19 @@ penclip> exit
 # 健康检查
 curl http://localhost:8000/health
 
-# 提交自然语言指令（异步）
-curl -X POST http://localhost:8000/api/v1/tasks \
+# 建会话 → 提交指令（异步）
+SESSION=$(curl -s -X POST http://localhost:8000/api/v1/sessions | jq -r .session_id)
+curl -s -X POST http://localhost:8000/api/v1/tasks \
   -H "Content-Type: application/json" \
-  -d '{"user_input": "将视频中笑的部分剪成欢快的集锦", "language": "zh"}'
+  -d "{\"user_input\": \"做个混剪：红色开头，绿色中间，蓝色结尾\", \"session_id\": \"$SESSION\"}"
 # → {"task_id": "...", "session_id": "...", "status": "pending"}
 
-# 查询任务状态 / 结果
-curl http://localhost:8000/api/v1/tasks/{task_id}
-curl http://localhost:8000/api/v1/tasks/{task_id}/result
+# 轮询结果；高风险指令会停在确认门
+curl -s http://localhost:8000/api/v1/tasks/{task_id}/result
+# → {"needs_confirmation": true, "confirmation_message": "..."}
+
+# 确认放行后继续（同样返回 task_id，再轮询）
+curl -s -X POST http://localhost:8000/api/v1/tasks/sessions/$SESSION/confirm
 ```
 
 > 交互式 API 文档：http://localhost:8000/docs。REST 异步为**备用方案**，主要交互方式请使用[交互控制台](docs/视频混剪智能体-控制台使用指南.md)。
@@ -186,14 +194,14 @@ curl http://localhost:8000/api/v1/tasks/{task_id}/result
 src/penclip/
 ├── domain/          # 领域层：entities / value_objects / repositories（零依赖）
 ├── core/            # 应用层：hub / orchestration / state / event
-├── agents/          # 智能体：BaseAgent + Planner/Analyzer/Matcher/Composer
-├── services/        # 服务层：llm / clip / ffmpeg / scene_detect / vector / file
+├── agents/          # 智能体：BaseAgent + Planner/Asset/Analyzer/Matcher/Composer/State
+├── services/        # 服务层：scene_detect / ffmpeg / file 已接通；llm / clip / vector 待 V0.2
 ├── infrastructure/  # 基础设施：persistence / cache / messaging
-├── api/             # 接入层：v1 / middleware / websocket / schemas
-├── cli/             # CLI
+├── api/             # 接入层：v1 / task_backend(neotask) / middleware / websocket / schemas
+├── cli/             # CLI（penclip-cli 控制台）
 ├── plugins/         # 插件系统 + Docker 沙箱
 ├── hub/ graph/ state/   # ⚠️ Bridge 兼容转发层（指向 core/、domain/）
-├── client/          # 遗留：多 AI 提供商客户端
+├── llm/             # 遗留：多 AI 提供商客户端
 ├── tools/           # 遗留：6 个视频分析工具
 └── utils/ config/ logger.py   # 遗留：工具库 / 配置 / 日志
 ```
@@ -202,8 +210,8 @@ src/penclip/
 
 - **语言**：Python 3.9+
 - **Web**：FastAPI + uvicorn（异步，自动 OpenAPI 文档）
-- **AI**：OpenAI / Qwen / DeepSeek / Ollama，LangGraph 1.x + LangGraph Checkpoint
-- **视频**：FFmpeg、OpenCV、PyDub；语音识别 SpeechRecognition
+- **AI**：OpenAI / 通义千问 Qwen / DeepSeek / Ollama；LangGraph 1.x + Checkpoint 已声明，V0.1 编排仍为直通 stub
+- **视频**：FFmpeg、OpenCV（自研自适应场景切分）、PyDub；SpeechRecognition 工具已就位但未接入智能体
 - **数据**：NumPy、Pandas、Scikit-learn
 - **队列/缓存**：Redis（多进程模式）
 - **代码质量**：ruff、black、mypy、pytest、pre-commit
@@ -212,7 +220,7 @@ src/penclip/
 
 | 版本 | 代号 | 核心目标 | 状态 |
 | :-- | :-- | :-- | :-- |
-| V0.1 | 星型骨架 | DDD 分层骨架 + 关键词命令解析 | **当前** |
+| V0.1 | 出片闭环 | DDD 分层 + 关键词中枢分发 + 端到端出片（控制台与 REST 双通道）| **当前** |
 | V0.2 | 语义理解 | LLM 意图解析 + 真实 LangGraph 编排 + SQLite 状态 | 规划中 |
 | V0.3 | 可视化协作 | Web UI + 多 Agent 协作 + 能力注册正式化 | 规划中 |
 | V1.0 | 生产就绪 | 企业级能力（认证/限流/Postgres/MinIO/K8s） | 远期 |
@@ -244,10 +252,7 @@ pre-commit install
 | :-- | :-- |
 | [控制台使用指南](docs/视频混剪智能体-控制台使用指南.md) | 交互式控制台（REPL）完整用法 |
 | [快速开始](docs/视频混剪智能体-快速开始.md) | 从零到跑通的图文指南 |
-| [项目总结](docs/视频混剪智能体-项目总结.md) | 项目设计理念与核心契约 |
-| [设计原则](docs/视频混剪智能体-设计原则.md) | 目标架构与设计模式 |
-| [技术架构](docs/视频混剪智能体-技术架构.md) | 系统总体架构、人机协同、数据契约 |
-| [版本演进](docs/视频混剪智能体-版本演进.md) | 版本规划与路线 |
+| [项目总结](docs/视频混剪智能体-项目总结.md) | 项目设计理念与核心契约（原「技术架构 / 版本演进 / 设计原则 / 项目总览」四文档的精简版） |
 | [AI 开发总览](docs/AI开发导向-项目总览.md) | AI 开发者视角的项目总览 |
 | [项目技能](.claude/skills/SKILL.md) | Claude Code 技能文档索引 |
 

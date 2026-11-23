@@ -98,7 +98,7 @@ hub.get_capabilities()                             # 查看已注册能力
 ## 关键值对象契约
 
 ### IntentType（`domain/value_objects/intent.py`）
-30+ 意图，6 类（详见 `project.md`）。未知输入经 `_missing_` 兜底为 `UNKNOWN`。新增意图需同步更新 `IntentRecognizer._KEYWORD_INTENT_MAP` 与 `RiskAssessor._INTENT_RISK_MAP`。
+30 个意图，6 类（详见 `project.md`）。未知输入经 `_missing_` 兜底为 `UNKNOWN`。新增意图需同步更新 `IntentRecognizer._KEYWORD_INTENT_MAP` 与 `RiskAssessor._INTENT_RISK_MAP`。
 
 ### CapabilityDeclaration（`domain/value_objects/capability.py`）
 ```python
@@ -131,19 +131,26 @@ class ExecutionResult:
 @dataclass
 class ExecutionContext:
     session_id: Optional[str] = None
+    intent: Optional[IntentType] = None      # 中枢注入：识别到的意图
     hub_state: Optional[Dict[str, Any]] = None
     user_preferences: Dict[str, Any] = field(default_factory=dict)
 ```
+
+> 中枢实际传入的是普通 `dict`（`core/` 不允许依赖 `agents/`），键与上述字段一致；`execute()` 请用 `context.get("session_id")` 之类取值。
 
 ## 现有 Agent 清单
 
 | Agent | agent_id | 能力 | 状态 |
 | :-- | :-- | :-- | :-- |
-| `PlannerAgent` | `planner` | 规划类意图，关键词槽位抽取 | ✅ 有逻辑 |
-| `AnalyzerAgent` | `analyzer` | 分析类意图 | ⚠️ 骨架 |
-| `MatcherAgent` | `matcher` | 素材匹配 | ⚠️ 骨架 |
-| `ComposerAgent` | `composer` | 视频合成 | ⚠️ 骨架 |
-| `PluginAgent` | `plugin` | 插件代理 | ⚠️ 骨架 |
+| `PlannerAgent` | `planner` | 规划类意图，LLM 优先 + 关键词槽位抽取 | ✅ 有逻辑 |
+| `AssetAgent` | `asset_manager` | `asset_add`：登记本地视频/URL（仅记录，不下载） | ✅ 有逻辑 |
+| `AnalyzerAgent` | `analyzer` | 分析类意图：场景切分 + 元数据 + 视觉统计标签 | ✅ 有逻辑 |
+| `MatcherAgent` | `matcher` | 素材匹配：标签重叠 + 时长约束打分（含 `EXECUTE`） | ✅ 有逻辑 |
+| `ComposerAgent` | `composer` | 视频合成：concat/xfade + BGM 叠加 + 出片自检 | ✅ 有逻辑 |
+| `StateAgent` | `state_manager` | 进度查询 / 撤销 / 重做 / 渲染入口 | ✅ 有逻辑 |
+| `PluginAgent` | `plugin_proxy` | 插件代理 | ⚠️ 骨架（V2.0） |
+
+`register_core_agents(hub)`（`agents/__init__.py`）一次注册前 6 个；REST 与 CLI 共用，能力数应为 6。
 
 > 注意：`agents/planner_agent.py` 是 Bridge 转发模块（`from penclip.agents.planner import ...`），真实实现在 `agents/planner.py`。`application.py` 的启动钩子仍通过旧路径 `planner_agent` 导入，故保留。
 
@@ -163,7 +170,7 @@ config = client.generate_video_config("视频配置描述")
 2. 实现 `create_chat_completion` / 响应转换
 3. 在 `client_factory.py` 工厂方法注册
 
-> 当前 LLM 客户端实现位于 `llm/`；新增 provider 应优先扩展该目录，并通过 `client_factory.py` 注册。`client/` 仅作为历史导入路径或迁移兼容层处理，除非现有调用链明确要求，不要在其中新增逻辑。
+> LLM 客户端层是 `penclip/llm/`（旧 `client/` 目录已不存在）；Agent 侧调用请 `from penclip.llm.client_factory import get_ai_client`，并且必须处理「未配置 API Key」的降级路径——`PlannerAgent` 就是先试 LLM、失败后回退关键词切分。
 
 ## 服务层（`services/`）
 
@@ -171,12 +178,13 @@ config = client.generate_video_config("视频配置描述")
 
 | 服务 | 职责 | V0.1 状态 |
 | :-- | :-- | :-- |
-| `llm_service.py` | LLM 调用统一入口（策略模式） | 骨架 |
-| `clip_service.py` | CLIP 零样本分类 | stub |
-| `ffmpeg_service.py` | FFmpeg 封装 | 骨架 |
-| `scene_detect_service.py` | 场景分割（PySceneDetect） | stub |
-| `vector_service.py` | 向量检索（Milvus Lite） | stub |
-| `file_service.py` | 文件存储 | 骨架 |
+| `llm_service.py` | `LLMService` 抽象接口 + `LLMFactory`（策略模式） | 仅接口与工厂，尚无注册进来的实现；实际 LLM 调用走 `llm/ai_client` |
+| `llm_config.py` | 多提供商配置读取（`.env` + `config.json` 双通道） | ✅ 可用 |
+| `clip_service.py` | CLIP 零样本分类 | ❌ stub（返回全 0 / 空向量） |
+| `ffmpeg_service.py` | FFmpeg 封装 | ✅ 委托 `utils/ffmpeg_utils`、`utils/ffmpeg_run_utils` |
+| `scene_detect_service.py` | 场景分割（OpenCV 直方图 + 自适应阈值，**非 PySceneDetect**） | ✅ 委托 `tools/scene_recognition_tool` |
+| `vector_service.py` | 向量检索 | ❌ stub（V0.2 接 embedding + 向量库） |
+| `file_service.py` | 本地视频路径解析与读写 | ✅ 可用（不含下载） |
 
 ## 工具目录（遗留 `tools/`，仍在使用）
 

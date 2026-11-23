@@ -34,21 +34,19 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 async def startup_with_recovery():
     """编译 LangGraph 图 + 注册 Agent"""
+    from penclip.agents import register_core_agents
     from penclip.graph.hub_graph import get_graph
     from penclip.hub.hub_core import get_hub
-    from penclip.agents.planner_agent import get_planner_agent
 
     info("Compiling LangGraph StateGraph...")
     graph = get_graph()
     info(f"Graph compiled: {type(graph).__name__}")
 
-    info("Registering planner agent...")
+    info("Registering core agents...")
     hub = get_hub()
-    planner = get_planner_agent()
-    hub.register_agent(planner)
+    count = register_core_agents(hub)
 
-    capabilities = hub.registry.list_all()
-    info(f"Hub initialized with {len(capabilities)} capability record(s)")
+    info(f"Hub initialized with {count} capability record(s)")
 
 
 async def app_startup():

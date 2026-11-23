@@ -43,6 +43,12 @@ _STAGE_MAP = {
 
 _NON_TERMINAL = ("pending", "scheduled", "running")
 
+# 中枢确认门之后的续跑动作：按 session_id 取回挂起操作执行
+_RESUMERS = {
+    "confirm": lambda hub, session_id: hub.confirm(session_id),
+    "cancel": lambda hub, session_id: hub.cancel(session_id),
+}
+
 
 def _parse_json(raw: Any) -> Any:
     """把 neotask 序列化后的 JSON 字符串还原为对象。"""
@@ -103,12 +109,17 @@ class TaskLifecycleManager:
         """neotask worker 调用的执行函数。返回 JSON 可序列化结果。"""
         script = data.get("script", "")
         session_id = data.get("session_id") or data.get("script_id") or str(uuid.uuid4())
-        resp = self._hub.process(user_input=script, session_id=session_id)
+        action = data.get("action")
+        if action:
+            resp = _RESUMERS[action](self._hub, session_id)
+        else:
+            resp = self._hub.process(user_input=script, session_id=session_id)
         return {
             "success": resp.success,
             "intent": resp.intent.value if resp.intent else None,
             "message": resp.message,
             "data": resp.data,
+            "suggestions": list(resp.suggestions or []),
             "needs_confirmation": resp.needs_confirmation,
             "confirmation_message": resp.confirmation_message,
         }
@@ -186,6 +197,17 @@ class TaskLifecycleManager:
         info(f"Task submitted: {task_id[:8]} [intent={intent_type}, session={sid[:8]}]")
         return sid, task_id
 
+    def resolve_confirmation(
+            self, session_id: str, accept: bool = True) -> Tuple[str, str]:
+        """确认门之后的续跑：把「确认/取消」也当作任务入队，保持异步契约。"""
+        _, task_id = self.submit(
+            script="",
+            script_id=session_id,
+            session_id=session_id,
+            metadata={"action": "confirm" if accept else "cancel"},
+        )
+        return session_id, task_id
+
     # ── 状态查询 ──
 
     def get_status(self, task_id: str) -> Optional[Dict[str, Any]]:
@@ -248,9 +270,16 @@ class TaskLifecycleManager:
         return {
             "task_id": task_id,
             "script_id": data.get("script_id"),
-            "success": status == "success",
+            "session_id": data.get("session_id"),
+            # 任务跑完 ≠ 能力执行成功：中枢返回 success=False 时不能对外报成功
+            "success": status == "success" and bool(result.get("success", True)),
             "status": _STATUS_MAP.get(status, status),
+            "intent": result.get("intent"),
+            "message": result.get("message") or None,
             "data": result.get("data"),
+            "suggestions": result.get("suggestions") or [],
+            "needs_confirmation": bool(result.get("needs_confirmation")),
+            "confirmation_message": result.get("confirmation_message") or None,
             "error": raw.get("error") or None,
             "processing_time_ms": self._elapsed_ms(raw.get("created_at"), raw.get("completed_at")),
             "created_at": raw.get("created_at"),

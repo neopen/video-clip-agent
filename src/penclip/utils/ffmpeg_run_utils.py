@@ -852,14 +852,27 @@ def apply_xfade_transition(video1_path: str, video2_path: str, output_path: str,
 
         # 根据音频存在情况构建音频处理
         if has_audio1 and has_audio2:
-            # 两个视频都有音频，使用concat滤镜按顺序连接音频
-            filter_complex.append(f"[0:a][1:a]concat=n=2:v=0:a=1[a]")
-        elif has_audio1:
-            # 只有第一个视频有音频，直接映射音频
-            filter_complex.append("[0:a]acopy[a]")
-        elif has_audio2:
-            # 只有第二个视频有音频，直接映射音频
-            filter_complex.append("[1:a]acopy[a]")
+            # xfade 让视频重叠 transition_duration 秒，音频必须用 acrossfade 同步收缩，
+            # 否则逐段累积错位：视频比音频短 N×duration 秒（音画不同步）
+            filter_complex.append(
+                f"[0:a][1:a]acrossfade=d={transition_duration}:c1=tri:c2=tri[a]"
+            )
+        elif has_audio1 or has_audio2:
+            # 单声道素材：另一路补静音后仍做 acrossfade，保持音视频等长
+            pad = "silent_pad"
+            filter_complex.append(
+                f"anullsrc=channel_layout=stereo:sample_rate=44100,"
+                f"atrim=0={transition_duration},asetpts=PTS-STARTPTS[{pad}]"
+            )
+            if has_audio1:
+                filter_complex.append(f"[0:a][{pad}]acrossfade=d={transition_duration}[a]")
+            else:
+                filter_complex.append(f"[{pad}][1:a]acrossfade=d={transition_duration}[a]")
+        else:
+            filter_complex.append(
+                "anullsrc=channel_layout=stereo:sample_rate=44100,"
+                "atrim=0=1,asetpts=PTS-STARTPTS[a]"
+            )
 
         merge_cmd.extend(["-filter_complex", ";".join(filter_complex)])
         merge_cmd.extend(["-map", "[v]"])
@@ -1162,7 +1175,7 @@ def apply_basic_transition(video1_path: str, video2_path: str, output_path: str,
 if __name__ == '__main__':
 
     # 使用示例
-    duration = get_video_duration("E:\Projects\blogs\tool-video-agent\data/output\temp\transcoded_1_ba4feb95.mp4")
+    duration = get_video_duration(r"E:\Projects\blogs\tool-video-agent\data/output\temp\transcoded_1_ba4feb95.mp4")
     print(duration)
     if duration:
         hours = int(duration // 3600)

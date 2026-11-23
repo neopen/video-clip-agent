@@ -25,8 +25,8 @@ type: reference
 ## 快速命令
 
 ```bash
-# 代码格式化
-black src/ tests/
+# 格式化（hooks 实际启用的是 ruff-format；black 配置仍保留在 pyproject.toml）
+ruff format src/ tests/
 
 # Lint 检查
 ruff check src/ tests/
@@ -55,23 +55,14 @@ pytest -m "integration"
 
 ## pre-commit 配置
 
-文件：`.pre-commit-config.yaml`
+文件：`.pre-commit-config.yaml`（以该文件为准，下面是当前实际启用的分组）
 
-```yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    hooks:
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-      - id: check-yaml
-      - id: check-json
-  - repo: https://github.com/psf/black
-    hooks:
-      - id: black
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    hooks:
-      - id: ruff
-```
+| 分组 | hooks |
+| :-- | :-- |
+| 基础检查 | `trailing-whitespace`、`end-of-file-fixer`、`check-yaml`、`check-toml`、`check-json`、`check-added-large-files`（5MB）、`detect-private-key` |
+| 格式化与 Lint | `ruff`（`--fix --exit-non-zero-on-fix`）+ **`ruff-format`（替代 black）** |
+| 类型检查 | `mypy`（`--ignore-missing-imports --show-error-codes --pretty`） |
+| 文档 | `mdformat --number`（提交时会自动重排 Markdown） |
 
 **安装和运行**：
 ```bash
@@ -140,17 +131,19 @@ python_files = "test_*.py"
 
 ```text
 tests/
-├── api/                 # API 路由与接口行为
+├── conftest.py
+├── api/                 # API 路由与接口行为（tasks / sessions / 501 占位）
+├── integration/         # test_video_pipeline.py：端到端出片，需本机 ffmpeg
 └── unit/                # 领域、核心逻辑、Agent、CLI 等单元测试
 ```
 
-当前已有 `api/` 和 `unit/` 测试；不要依据文档假设测试目录为空。
+当前共 106 个用例：`unit/` + `api/` 无外部依赖可直接跑；`integration/` 标记了 `integration` 与 `slow`，无 ffmpeg 时自动 skip。
 
 ## 提交前检查清单
 
 根据变更范围执行以下检查：
 
-- [ ] `black --check src/ tests/`
+- [ ] `ruff format --check src/ tests/`
 - [ ] `ruff check src/ tests/`
 - [ ] `mypy src/penclip`
 - [ ] `pytest`
@@ -175,7 +168,7 @@ ruff check --fix src/  # 自动修复导入顺序
 ```
 
 **Q: black 与 ruff 冲突？**
-不会。E501 已从 ruff 中排除，行长度由 black 统一管理。
+不会。E501 已从 ruff 中排除，行长度由格式化工具（hooks 用 `ruff-format`，`pyproject.toml` 里同时保留了 black 配置）统一管理。
 
 **Q: 如何只检查变更的文件？**
 ```bash

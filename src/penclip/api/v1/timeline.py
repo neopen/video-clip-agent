@@ -1,20 +1,22 @@
-"""Timeline API endpoints — create, modify, query timelines."""
+"""Timeline API endpoints — V0.1 占位，时间线由 PlannerAgent 写入会话状态。"""
 
 from fastapi import APIRouter
+
+from penclip.api.v1.dependencies import not_implemented
 
 router = APIRouter(prefix="/timelines", tags=["timeline"])
 
 
 @router.post("")
 async def create_timeline():
-    return {"status": "ok", "message": "Timeline created (stub)"}
+    not_implemented("时间线创建接口")
 
 
 @router.get("/{timeline_id}")
 async def get_timeline(timeline_id: str):
-    return {"timeline_id": timeline_id, "slots": []}
+    not_implemented("时间线查询接口")
 
 
 @router.put("/{timeline_id}/slots/{slot_id}")
 async def update_slot(timeline_id: str, slot_id: str):
-    return {"timeline_id": timeline_id, "slot_id": slot_id, "status": "updated"}
+    not_implemented("槽位编辑接口")

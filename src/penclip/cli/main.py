@@ -11,16 +11,9 @@ from penclip.utils.env_utils import print_large_ascii
 
 def register_default_agents(hub) -> None:
     """注册核心智能体，使交互控制台具备完整能力覆盖。"""
-    from penclip.agents.planner import get_planner_agent
-    from penclip.agents.analyzer import AnalyzerAgent
-    from penclip.agents.matcher import MatcherAgent
-    from penclip.agents.composer import ComposerAgent
-    from penclip.agents.asset_agent import AssetAgent
+    from penclip.agents import register_core_agents
 
-    for agent in (
-        get_planner_agent(), AnalyzerAgent(), MatcherAgent(), ComposerAgent(), AssetAgent(),
-    ):
-        hub.register_agent(agent)
+    register_core_agents(hub)
 
 
 def main():

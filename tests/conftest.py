@@ -1,8 +1,9 @@
 """pytest 全局夹具。
 
 目录分类约定：
-- tests/api/   —— 接口层测试（REST 端点）
-- tests/unit/  —— 单元测试（领域层 / 应用层纯逻辑）
+- tests/api/         —— 接口层测试（REST 端点）
+- tests/unit/        —— 单元测试（领域层 / 应用层纯逻辑）
+- tests/integration/ —— 端到端出片测试（需本机 ffmpeg，标记 integration/slow）
 """
 
 import sys

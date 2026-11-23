@@ -297,6 +297,103 @@ class SceneRecognitionTool:
         diff = (1 - correlation) / 2  # 转换为0-1范围
         return diff
     
+    def sample_frame_differences(self, video_path: str) -> Dict[str, Any]:
+        """
+        按采样间隔逐帧输出颜色直方图差异序列，不做切点判定
+
+        场景切点的绝对差异值随素材风格差异很大（实测硬切仅 0.27~0.41），
+        因此把序列交给调用方做自适应阈值，而不是在这里写死判定。
+
+        Args:
+            video_path: 视频文件路径
+
+        Returns:
+            {'success': bool, 'video_info': dict, 'samples': [{'time','diff'}, ...]}
+        """
+        if not os.path.exists(video_path):
+            error(f"视频文件不存在: {video_path}")
+            return {'success': False, 'error': f"视频文件不存在: {video_path}"}
+        if not self.opencv_available:
+            return {'success': False, 'error': "OpenCV不可用，无法采样帧差异"}
+
+        cap = None
+        try:
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                error(f"无法打开视频文件: {video_path}")
+                return {'success': False, 'error': "无法打开视频文件"}
+
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if fps <= 0 or frame_count <= 0:
+                return {'success': False, 'error': "无效的视频帧信息"}
+
+            video_info = {
+                'fps': fps,
+                'frame_count': frame_count,
+                'duration': frame_count / fps,
+                'width': int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                'height': int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            }
+            step = max(1, int(fps * self.config['frame_interval']))
+
+            samples = []
+            previous_hist = None
+            frame_idx = 0
+            while frame_idx < frame_count:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                current_hist = self._calculate_histogram(frame)
+                if previous_hist is not None:
+                    sample = {
+                        'time': frame_idx / fps,
+                        'diff': self._compare_histograms(previous_hist, current_hist)
+                    }
+                    sample.update(self._describe_frame(frame))
+                    samples.append(sample)
+                previous_hist = current_hist
+                frame_idx += step
+
+            return {'success': True, 'video_info': video_info, 'samples': samples}
+        except Exception as e:
+            error(f"采样帧差异时发生异常: {str(e)}")
+            return {'success': False, 'error': str(e)}
+        finally:
+            if cap is not None:
+                cap.release()
+
+    def _describe_frame(self, frame: np.ndarray) -> Dict[str, Any]:
+        """
+        提取单帧的宽泛视觉描述（亮度均值 + 主色色相）
+
+        V0.1 只做低阈值宽泛标签，不做语义识别；CLIP/向量留到 V0.2。
+
+        Args:
+            frame: 视频帧
+
+        Returns:
+            {'brightness': 0-255, 'hue': 0-180 或 None}
+        """
+        try:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            brightness = float(np.mean(gray))
+
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            sat = hsv[:, :, 1]
+            # 低饱和像素（黑/白/灰）的色相无意义，剔除后再取主色
+            mask = sat > 60
+            if np.count_nonzero(mask) < max(1, frame.shape[0] * frame.shape[1] * 0.02):
+                return {'brightness': brightness, 'hue': None}
+
+            hist = cv2.calcHist([hsv], [0], mask.astype(np.uint8), [36], [0, 180])
+            dominant_bin = int(np.argmax(hist))
+            return {'brightness': brightness, 'hue': float(dominant_bin * 5)}
+        except Exception as e:
+            debug(f"提取帧描述失败: {str(e)}")
+            return {'brightness': 0.0, 'hue': None}
+
     def _filter_scenes_by_content(self, cap: cv2.VideoCapture, scenes: List[Tuple[float, float]],
                                  keywords: Optional[List[str]]) -> List[Tuple[float, float]]:
         """

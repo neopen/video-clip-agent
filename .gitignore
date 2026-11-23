@@ -51,6 +51,7 @@ temp/
 # Sensitive files
 db.json
 *.local
+.codex/config.toml
 
 # Java (from template)
 .svn/

@@ -1,5 +1,6 @@
 """VideoAsset entity — represents an uploaded video file and its metadata."""
 
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -16,7 +17,7 @@ class AssetStatus(str, Enum):
 
 
 class VideoAsset(BaseModel):
-    asset_id: str = Field(default_factory=lambda: f"asset_{id(object())}")
+    asset_id: str = Field(default_factory=lambda: f"asset_{uuid.uuid4().hex[:12]}")
     filename: str = ""
     file_path: str = ""
     file_hash: str = ""

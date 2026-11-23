@@ -10,6 +10,7 @@
 | `code-standards.md`  | 代码规范         | 分层依赖、dataclass/Pydantic、类型注解、命名、导入、日志 |
 | `validation.md`      | 代码校验         | pre-commit、ruff、black、mypy、pytest |
 | `agent-development.md` | 智能体开发       | BaseAgent、能力注册、意图类型、LLM 客户端、服务层、工作流集成 |
+| `project-conventions.md` | 项目约定补充     | 跨模块实现最容易出错的约束：分层边界、视频处理、敏感配置（与 `CLAUDE.md` 冲突时以后者为准） |
 
 ## 使用方式
 
@@ -22,11 +23,12 @@
 
 ## 当前版本
 
-**V0.1 — DDD 分层骨架**
+**V0.1 — DDD 分层 + 出片闭环**
 
 核心能力：
-- 星型中枢分发（`CentralHub` + 能力注册）+ 线性链路工作流
+- 星型中枢分发（`CentralHub` + 能力注册）+ 线性链路工作流（`WorkflowOrchestrator` 真实执行）
+- 出片闭环：素材登记 → 场景分析 → 槽位规划 → 标签匹配 → concat 合成，控制台与 REST 双通道
 - DDD 分层：domain（零依赖）/ core / agents / services / infrastructure / api
-- 领域模型完整（Pydantic 实体 + dataclass 值对象 + 30+ 意图枚举）
+- 领域模型完整（Pydantic 实体 + dataclass 值对象 + 30 个意图枚举）
 - 关键词意图识别（V0.2 升级 LLM）；LangGraph 编排（V0.1 stub，V0.2 接入）
-- 遗留层共存：`client/`（多 AI 提供商）、`tools/`（6 分析工具）、`utils/`
+- 遗留层共存：`llm/`（多 AI 提供商）、`tools/`（6 分析工具）、`utils/`

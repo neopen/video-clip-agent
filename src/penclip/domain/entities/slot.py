@@ -1,12 +1,13 @@
 """Slot entity — a position in the timeline with semantic requirements."""
 
+import uuid
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
 
 class Slot(BaseModel):
-    slot_id: str = Field(default_factory=lambda: f"slot_{id(object())}")
+    slot_id: str = Field(default_factory=lambda: f"slot_{uuid.uuid4().hex[:12]}")
     position: int = 0
     semantic_query: str = ""
     min_duration: float = 1.0

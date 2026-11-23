@@ -4,6 +4,6 @@ Existing code imports:
     from penclip.agents.planner_agent import get_planner_agent
 """
 
-from penclip.agents.planner import get_planner_agent, PlannerAgent
+from penclip.agents.planner import PlannerAgent, get_planner_agent
 
 __all__ = ["get_planner_agent", "PlannerAgent"]

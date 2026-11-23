@@ -2,17 +2,17 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from penclip.domain.value_objects.capability import CapabilityDeclaration
 from penclip.domain.value_objects.execution_result import ExecutionResult
-from penclip.domain.value_objects.risk import RiskLevel
 from penclip.logger import debug, info
 
 
 @dataclass
 class ExecutionContext:
     session_id: Optional[str] = None
+    intent: Optional[str] = None
     hub_state: Optional[Dict[str, Any]] = None
     user_preferences: Dict[str, Any] = field(default_factory=dict)
 

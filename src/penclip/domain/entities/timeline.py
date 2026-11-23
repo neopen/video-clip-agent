@@ -1,5 +1,6 @@
 """TimelineBlueprint entity — the top-level plan for a video assembly."""
 
+import uuid
 from typing import List
 
 from pydantic import BaseModel, Field
@@ -8,7 +9,7 @@ from penclip.domain.entities.slot import Slot
 
 
 class TimelineBlueprint(BaseModel):
-    timeline_id: str = Field(default_factory=lambda: f"tl_{id(object())}")
+    timeline_id: str = Field(default_factory=lambda: f"tl_{uuid.uuid4().hex[:12]}")
     slots: List[Slot] = Field(default_factory=list)
     total_duration: float = 0.0
     output_resolution: str = "1920x1080"

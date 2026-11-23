@@ -1,12 +1,13 @@
 """AssemblyState — the central global state shared across all agents and the hub."""
 
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from penclip.domain.entities.slot import Slot
 from penclip.domain.entities.segment import Segment
+from penclip.domain.entities.slot import Slot
 from penclip.domain.entities.video_asset import VideoAsset
 
 
@@ -26,6 +27,7 @@ class InteractionContext(BaseModel):
     pending_clarification: Optional[str] = None
     conversation_history: List[Dict[str, Any]] = Field(default_factory=list)
     undo_stack: List[Dict[str, Any]] = Field(default_factory=list)
+    redo_stack: List[Dict[str, Any]] = Field(default_factory=list)
     current_operation: Optional[str] = None
 
 
@@ -45,7 +47,7 @@ class AnalysisResult(BaseModel):
 
 
 class MatchCandidate(BaseModel):
-    candidate_id: str = Field(default_factory=lambda: f"cand_{id(object())}")
+    candidate_id: str = Field(default_factory=lambda: f"cand_{uuid.uuid4().hex[:12]}")
     segment_id: str = ""
     similarity_score: float = 0.0
     duration_match_score: float = 0.0
@@ -74,7 +76,7 @@ class MatchResult(BaseModel):
 
 
 class AssemblyState(BaseModel):
-    session_id: str = Field(default_factory=lambda: f"sess_{id(object())}")
+    session_id: str = Field(default_factory=lambda: f"sess_{uuid.uuid4().hex[:12]}")
     assets: List[VideoAsset] = Field(default_factory=list)
     slots: List[Slot] = Field(default_factory=list)
     analysis_results: Dict[str, AnalysisResult] = Field(default_factory=dict)
@@ -113,3 +115,37 @@ class AssemblyState(BaseModel):
                 if hasattr(slot, k):
                     setattr(slot, k, v)
             self.updated_at = datetime.now(timezone.utc)
+
+    def snapshot_for_undo(self, operation: str, limit: int = 10) -> None:
+        """Push the pre-mutation state so STATE_UNDO can restore it."""
+        entry = {
+            "operation": operation,
+            "state": self.model_dump(exclude={"interaction_context"}),
+        }
+        self.interaction_context.undo_stack.append(entry)
+        del self.interaction_context.undo_stack[:-limit]
+        self.updated_at = datetime.now(timezone.utc)
+
+    def pop_undo_snapshot(self) -> Optional[Dict[str, Any]]:
+        """Pop the most recent snapshot and rehydrate content fields from it."""
+        if not self.interaction_context.undo_stack:
+            return None
+        entry = self.interaction_context.undo_stack.pop()
+        self.restore_from(entry["state"])
+        return entry
+
+    def push_redo_snapshot(self, operation: str, limit: int = 10) -> None:
+        entry = {
+            "operation": operation,
+            "state": self.model_dump(exclude={"interaction_context"}),
+        }
+        self.interaction_context.redo_stack.append(entry)
+        del self.interaction_context.redo_stack[:-limit]
+
+    def restore_from(self, saved: Dict[str, Any]) -> None:
+        """Replace content fields with a snapshot, keeping both undo stacks intact."""
+        payload = {**saved, "interaction_context": self.interaction_context.model_dump()}
+        restored = AssemblyState.model_validate(payload)
+        for name in type(self).model_fields:
+            setattr(self, name, getattr(restored, name))
+        self.updated_at = datetime.now(timezone.utc)

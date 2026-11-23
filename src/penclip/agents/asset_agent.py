@@ -1,5 +1,6 @@
 """AssetAgent — records video asset URLs into session state (record-only, no download)."""
 
+import os
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
@@ -10,8 +11,7 @@ from penclip.domain.value_objects.capability import CapabilityDeclaration
 from penclip.domain.value_objects.execution_result import ExecutionResult
 from penclip.domain.value_objects.intent import IntentType
 from penclip.domain.value_objects.risk import RiskLevel
-from penclip.logger import info, warning
-
+from penclip.logger import info
 
 DEFAULT_CONFIG = {
     "record_only": True,
@@ -84,6 +84,8 @@ class AssetAgent(BaseAgent):
 
     @staticmethod
     def _filename_from_url(url: str) -> str:
+        if not urlparse(url).scheme:
+            return os.path.basename(url.rstrip("\\/")) or "video"
         path = urlparse(url).path
         name = path.rsplit("/", 1)[-1] if path else ""
         return name or "video"

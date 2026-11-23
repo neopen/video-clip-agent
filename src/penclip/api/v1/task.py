@@ -20,6 +20,22 @@ def submit_task(request: HubRequestSchema):
     return {"task_id": task_id, "session_id": session_id, "status": "pending"}
 
 
+@router.post("/sessions/{session_id}/confirm")
+def confirm_session(session_id: str):
+    """确认挂起的高风险指令并续跑 —— 提交任务只会返回 needs_confirmation，真正的放行在这里。"""
+    manager = get_task_lifecycle_manager()
+    session_id, task_id = manager.resolve_confirmation(session_id, accept=True)
+    return {"task_id": task_id, "session_id": session_id, "status": "pending"}
+
+
+@router.post("/sessions/{session_id}/cancel")
+def cancel_session(session_id: str):
+    """放弃挂起的高风险指令，会话状态保持不变。"""
+    manager = get_task_lifecycle_manager()
+    session_id, task_id = manager.resolve_confirmation(session_id, accept=False)
+    return {"task_id": task_id, "session_id": session_id, "status": "pending"}
+
+
 @router.get("/{task_id}")
 def get_task_status(task_id: str):
     """查询任务状态。"""

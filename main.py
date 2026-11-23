@@ -37,7 +37,7 @@ class NeopenApp(AppBaseEnv):
 
     def start_application(self):
         """启动应用的抽象方法"""
-        info("正在启动 Neopen 应用......")
+        info("正在启动 penclip 应用......")
 
         # 设置信号处理函数
         def signal_handler(sig, frame):
@@ -55,7 +55,7 @@ class NeopenApp(AppBaseEnv):
             signal.signal(signal.SIGTERM, signal_handler)  # 处理终止信号
 
             # 解析命令行参数
-            parser = argparse.ArgumentParser(description='Neopen 应用启动脚本')
+            parser = argparse.ArgumentParser(description='penclip 应用启动脚本')
             parser.add_argument('--host', type=str, help='服务器监听地址')
             parser.add_argument('--port', type=int, help='服务器监听端口')
             args = parser.parse_args()
@@ -75,7 +75,7 @@ class NeopenApp(AppBaseEnv):
 
             # 输出启动信息
             debug(f"服务器配置: host={host}, port={port}, reload={reload}, workers={workers}")
-            info(f"服务启动成功: 可以按 Ctrl+C 停止服务器")
+            info(f"penclip 服务启动成功: 可以按 Ctrl+C 停止服务器")
 
             # 当workers=1时，使用更直接的方式以支持信号处理
             if workers == 1:

@@ -99,13 +99,16 @@ video-clip-agent/
 │   │       └── event_handlers.py         # 事件处理器
 │   │
 │   ├── agents/                           # 智能体层
-│   │   ├── __init__.py
+│   │   ├── __init__.py                   # register_core_agents()：一次性注册 6 个智能体
 │   │   ├── base.py                       # BaseAgent 抽象基类
 │   │   ├── agent_factory.py              # AgentFactory - 智能体工厂
-│   │   ├── planner.py                    # PlannerAgent
+│   │   ├── planner.py                    # PlannerAgent（时间线规划）
+│   │   ├── planner_agent.py              # Bridge：转发 planner 的符号
+│   │   ├── asset_agent.py                # AssetAgent - 素材登记
 │   │   ├── analyzer.py                   # AnalyzerAgent
 │   │   ├── matcher.py                    # MatcherAgent
 │   │   ├── composer.py                   # ComposerAgent
+│   │   ├── state_agent.py                # StateAgent - 进度/撤销/重做/渲染
 │   │   └── plugin_agent.py               # PluginAgent - 插件代理
 │   │
 │   ├── domain/                           # 领域模型
@@ -134,11 +137,12 @@ video-clip-agent/
 │   ├── services/                         # 服务层
 │   │   ├── __init__.py
 │   │   ├── llm_service.py                # LLMService - 策略模式
-│   │   ├── clip_service.py               # CLIPService
-│   │   ├── ffmpeg_service.py             # FFmpegService
-│   │   ├── scene_detect_service.py       # SceneDetectService
-│   │   ├── vector_service.py             # VectorService
-│   │   └── file_service.py               # FileService
+│   │   ├── llm_config.py                 # 多提供商配置读取（.env + config.json）
+│   │   ├── clip_service.py               # CLIPService（V0.2 stub）
+│   │   ├── ffmpeg_service.py             # FFmpegService → 委托 utils/ffmpeg_utils
+│   │   ├── scene_detect_service.py       # SceneDetectService → 委托 tools/scene_recognition_tool
+│   │   ├── vector_service.py             # VectorService（V0.2 stub）
+│   │   └── file_service.py               # FileService - 本地视频路径解析与读写（不含下载）
 │   │
 │   ├── infrastructure/                   # 基础设施
 │   │   ├── __init__.py
@@ -159,14 +163,17 @@ video-clip-agent/
 │   │
 │   ├── api/                              # API 层
 │   │   ├── __init__.py
+│   │   ├── index_api.py                  # 系统级路由（/ 与 /health）
+│   │   ├── task_backend.py               # TaskLifecycleManager + neotask.TaskPool 异步执行
 │   │   ├── v1/                           # API v1
 │   │   │   ├── __init__.py
 │   │   │   ├── routes.py                 # 路由注册
-│   │   │   ├── dependencies.py           # 依赖注入
-│   │   │   ├── session.py                # 会话 API
-│   │   │   ├── asset.py                  # 素材 API
-│   │   │   ├── timeline.py               # 时间线 API
-│   │   │   ├── export.py                 # 导出 API
+│   │   │   ├── dependencies.py           # 依赖注入 + not_implemented(501)
+│   │   │   ├── task.py                   # 任务 API（含 confirm/cancel 确认门续跑）
+│   │   │   ├── session.py                # 会话 API（真实的建/查/删）
+│   │   │   ├── asset.py                  # 素材 API（V0.1 占位 501）
+│   │   │   ├── timeline.py               # 时间线 API（V0.1 占位 501）
+│   │   │   ├── export.py                 # 导出 API（V0.1 占位 501）
 │   │   │   └── webhook.py                # Webhook API
 │   │   │
 │   │   ├── middleware/                   # 中间件
@@ -189,9 +196,10 @@ video-clip-agent/
 │   │
 │   ├── cli/                              # CLI
 │   │   ├── __init__.py
-│   │   ├── main.py                       # CLI 入口
+│   │   ├── main.py                       # penclip-cli 入口（注册 6 智能体 + 会话 ID）
+│   │   ├── repl.py                       # run_repl：交互循环、确认门、pipeline
 │   │   ├── commands.py                   # 命令定义
-│   │   └── renderer.py                   # 输出渲染
+│   │   └── renderer.py                   # HubResponse 渲染
 │   │
 │   └── plugins/                          # 插件系统
 │       ├── __init__.py
@@ -200,54 +208,43 @@ video-clip-agent/
 │       ├── plugin_manager.py             # PluginManager
 │       └── sandbox/                      # 沙箱
 │           ├── __init__.py
-│           └── docker_sandbox.py         # DockerSandbox
+│           └── docker_sandbox.py         # DockerSandbox（V2.0 占位）
 │
-├── config/                               # 配置
-│   ├── __init__.py
-│   ├── settings.py                       # 全局配置
-│   └── profiles/                         # 配置环境
-│       ├── development.yaml
-│       ├── production.yaml
-│       └── testing.yaml
+│   ├── app/                              # FastAPI 装配（application.py / setup_env.py）
+│   ├── hub/ graph/ state/                # ⚠️ Bridge 兼容转发层 → core/、domain/
+│   ├── llm/                              # 遗留：多 AI 提供商客户端（client_factory 等）
+│   ├── tools/                            # 遗留：6 个视频分析工具（场景/元数据/语音/情绪/物体/需求）
+│   ├── utils/                            # 遗留：ffmpeg_utils、ffmpeg_run_utils、路径/日志/环境
+│   ├── config/                           # 遗留：config.py + config.json（与 .env 双通道）
+│   └── logger.py                         # 遗留：分级日志 + 轮转
 │
-├── tests/                                # 测试
-│   ├── __init__.py
-│   ├── unit/                             # 单元测试
-│   │   ├── core/
-│   │   ├── agents/
-│   │   ├── domain/
-│   │   └── services/
-│   │
-│   ├── integration/                      # 集成测试
-│   │
-│   ├── e2e/                              # 端到端测试
-│   │
-│   └── fixtures/                         # 测试数据
+├── tests/                                # pytest（105 用例）
+│   ├── conftest.py
+│   ├── unit/                             # 中枢分发/意图/确认/撤销/CLI/工作流/场景检测
+│   ├── api/                              # REST 契约：tasks、sessions、501 占位端点
+│   └── integration/                      # test_video_pipeline.py：端到端出片（需本机 ffmpeg）
 │
-├── scripts/                              # 脚本
-│   ├── dev.py                            # 开发辅助
-│   ├── seed_data.py                      # 数据填充
-│   └── benchmark.py                      # 性能基准
-│
-├── docker/                               # Docker
-│
-├── docs/                                 # 文档
-│
-├── pyproject.toml
-├── requirements.txt
+├── examples/                             # 遗留示例脚本
+├── docs/                                 # 四份设计文档（见 §8 文档索引）
+├── .github/workflows/                    # CI
+├── pyproject.toml                        # 唯一的依赖与工具配置入口（无 requirements.txt）
 ├── .env.example
 └── README.md
 ```
 
 ### 3.2 已实现模块清单
 
-#### `api/` — HTTP API 层 (20 个路由端点)
+#### `api/` — HTTP API 层 (23 个路由端点：`app.openapi()['paths']` 实测；11 个真实可用，12 个 asset/timeline/export/webhook 端点返回 501)
 
 | 文件 | 职责 | 路由前缀 |
 |------|------|----------|
-| `index_api.py` | 根路由 `/` + `/health` + `/config/styles` | 无 |
-| `rest_api.py` | 核心业务: 分镜生成 / 批量处理 / 任务管理 | `/api/v1` |
-| `function_calls.py` | V0.1 stub 类型定义 (14 个类型 + TaskFactory stub) | (非路由, 供 rest_api 导入) |
+| `index_api.py` | 根路由 `/` + `/health` | 无 |
+| `task_backend.py` | `neotask.TaskPool` 任务生命周期，worker 内调用 `CentralHub.process/confirm/cancel` | (非路由) |
+| `v1/task.py` | 自然语言指令的提交 / 查询 / 取消 / 确认续跑 | `/api/v1/tasks` |
+| `v1/session.py` | 会话生命周期（建 / 概览 / 删） | `/api/v1/sessions` |
+| `v1/{asset,timeline,export,webhook}.py` | V0.1 占位路由，一律返回 501 | `/api/v1/...` |
+| `middleware/` | 日志 / 错误格式 / auth / 限流（后两者 V0.1 直通） | (中间件) |
+| `websocket/` | 连接管理与消息处理（V0.3 前端预留） | (未挂载) |
 
 **完整 API 端点表：**
 
@@ -255,33 +252,27 @@ video-clip-agent/
 |------|------|------|
 | GET | `/` | 服务信息 |
 | GET | `/health` | 健康检查 |
-| GET | `/config/styles` | 支持的视频风格 |
-| POST | `/api/v1/storyboard` | 分镜生成 (异步) |
-| POST | `/api/v1/storyboard/sync` | 分镜生成 (同步) |
-| POST | `/api/v1/storyboard/batch` | 批量分镜 (异步, ≤50) |
-| POST | `/api/v1/storyboard/batch/sync` | 批量分镜 (同步, ≤20) |
-| GET | `/api/v1/status/{task_id}` | 任务状态 |
-| GET | `/api/v1/result/{task_id}` | 任务结果 |
-| DELETE | `/api/v1/task/{task_id}` | 取消任务 |
-| GET | `/api/v1/tasks` | 任务列表 |
-| GET | `/api/v1/queue/status` | 队列状态 |
-| GET | `/api/v1/stats` | 处理统计 |
-| GET | `/api/v1/pending-tasks` | 未完成任务 |
-| POST | `/api/v1/recover-tasks` | 手动任务恢复 |
-| GET | `/api/v1/batch/status/{batch_id}` | 批量状态 |
-| GET | `/api/v1/batch/result/{batch_id}` | 批量结果 |
-| GET | `/api/v1/config` | 默认配置 |
-| GET | `/api/v1/languages` | 支持的语言 |
+| POST | `/api/v1/sessions` | 新建装配会话（可自带 `session_id`） |
+| GET | `/api/v1/sessions/{session_id}` | 会话概览：phase / assets / slots / matched_slots / undo_depth |
+| DELETE | `/api/v1/sessions/{session_id}` | 清除会话状态 |
+| POST | `/api/v1/tasks` | 提交自然语言指令，异步执行，返回 `task_id` |
+| GET | `/api/v1/tasks/{task_id}` | 任务详情 |
+| GET | `/api/v1/tasks/{task_id}/result` | 任务结果（含 `needs_confirmation`、`suggestions`） |
+| DELETE | `/api/v1/tasks/{task_id}` | 取消任务 |
+| POST | `/api/v1/tasks/sessions/{session_id}/confirm` | 确认挂起的高风险指令并续跑 |
+| POST | `/api/v1/tasks/sessions/{session_id}/cancel` | 放弃挂起指令，状态保持不变 |
+| * | `/api/v1/{assets,timelines,exports,webhooks}/…` | 占位，返回 `501` 并提示改用 `/api/v1/tasks` |
+
+出片主链路：`POST /sessions` → 多次 `POST /tasks`（素材路径 / 规划 / 分析 / 匹配）→ `confirm` 放行高风险步骤。
 
 #### `app/` — 应用装配
 
 | 文件 | 职责 |
 |------|------|
 | `application.py` | FastAPI app 创建 + CORS + 中间件 + 生命周期 + 异常处理 |
-| `proxy.py` | 反向代理路由 (localhost 文件服务) |
 | `setup_env.py` | 环境设置引擎: venv 创建 / 依赖检测 / 自动安装 / 启动 |
 
-#### `client/` — AI 客户端 (多供应商)
+#### `llm/` — AI 客户端 (多供应商，原 `client/`)
 
 | 文件 | 供应商 |
 |------|--------|
@@ -358,16 +349,14 @@ video-clip-agent/
 | 模块 | 当前状态 |
 |------|----------|
 | `RequestContextMiddleware` | 直通, 无上下文注入 |
-| `startup_with_recovery()` | 空函数, 不恢复任务 |
-| `TaskFactory` (在 function_calls.py) | 空壳, submit/submit_and_wait/batch 均为 no-op |
-| `TaskManager` (在 function_calls.py) | 空壳, 无实际状态存储 |
-| `set_language()` | 空函数 |
-| `ShotConfig` | 空 dataclass |
-| `get_generate_video_prompt()` | 简单包装用户输入 |
-| `get_user_requirement_prompt()` | 简单包装用户输入 |
-| `RequirementAnalyzerTool` | 关键字匹配, 无 LLM 调用 |
-| `list_tasks()` | 返回空列表 |
-| 所有 `/stats` `/queue/status` | 返回空统计数据 |
+| `auth` / `rate_limit` 中间件 | V0.1 放行，未接权限与配额 |
+| `startup_with_recovery()` | 注册 6 个智能体；LangGraph 图仍是 `LangGraphEngine` 直通 stub |
+| `TaskLifecycleManager.recover_pending_tasks()` | 只统计未完成任务，不重入队 |
+| `api/v1/{asset,timeline,export,webhook}.py` | 占位路由，调用返回 501 |
+| `infrastructure/`（postgres/minio/redis/cache/messaging） | V0.1 假实现，仓储接口已就位 |
+| `services/`（clip/vector/llm） | 语义能力待接入；scene_detect/ffmpeg/file 已桥接遗留实现 |
+| `tools/requirement_analyzer_tool.py` | 关键字匹配, 无 LLM 调用 |
+| `llm/ai_client.py` 的 `get_generate_video_prompt()` / `get_user_requirement_prompt()` | 简单包装用户输入 |
 
 ### 4.3 空目录 (待实现)
 
@@ -462,9 +451,12 @@ def get_my_tool() -> MyTool:
 ### 6.4 数据流约定
 
 ```
-用户请求 → FastAPI 端点 → TaskFactory.submit()
-  → Hub (V0.2) → Agent → Tool → 返回结果
-  → TaskFactory 更新状态 → 用户轮询/回调
+用户请求 → POST /api/v1/tasks → TaskLifecycleManager.submit() → neotask.TaskPool
+  → worker 调 CentralHub.process()：意图识别 → 风险评估 → 能力路由 → Agent
+  → Agent 读写 AssemblyState（get_session 是副本，改完必须 update_session）
+  → 任务结果持久化 → 客户端轮询 GET /api/v1/tasks/{task_id}/result
+  → 高风险指令停在确认门：POST /api/v1/tasks/sessions/{id}/confirm → hub.confirm() 续跑
+CLI 路径（penclip-cli）跳过任务池，直接同步调用同一个 hub 实例。
 ```
 
 ### 6.5 配置访问
@@ -503,11 +495,14 @@ paths = settings.get_data_paths()
 
 - `main.py` — 启动入口
 - `src/penclip/app/application.py` — FastAPI 应用装配
-- `src/penclip/api/rest_api.py` — 核心业务路由 (822 lines, 最大文件)
-- `src/penclip/api/function_calls.py` — 类型定义 + TaskFactory stub
+- `src/penclip/core/hub/central_hub.py` — 星型中枢：意图 → 风险 → 路由 → 撤销快照
+- `src/penclip/api/task_backend.py` — `neotask.TaskPool` 任务生命周期，worker 内调中枢
+- `src/penclip/api/v1/task.py` — 指令提交 / 查询 / 确认续跑路由
+- `src/penclip/agents/` — Planner / Asset / Analyzer / Matcher / Composer / State 六个智能体
+- `src/penclip/services/scene_detect_service.py` — 场景切分（自适应阈值）
+- `src/penclip/utils/ffmpeg_run_utils.py` — 遗留 ffmpeg 封装（最大文件）
+- `src/penclip/llm/client_factory.py` — AI 统一入口
 - `src/penclip/config/config.py` — Settings + 默认配置
-- `src/penclip/client/ai_client.py` — AI 统一入口
-- `src/penclip/tools/requirement_analyzer_tool.py` — 需求解析 (V0.1 关键字, V0.2 LLM)
 - `pyproject.toml` — 依赖声明
 
 ---
@@ -516,16 +511,16 @@ paths = settings.get_data_paths()
 
 | 优先级 | 任务 | 依赖 |
 |--------|------|------|
-| P0 | 实现 `TaskFactory` / `TaskManager` 真实逻辑 | function_calls.py stub |
-| P0 | 集成 LLM 到需求解析 (`RequirementAnalyzerTool`) | AI client 已完成 |
-| P0 | 创建 Prompt 模板 (`prompts/`) | 无 |
-| P1 | 实现 `hub/` 中枢调度引擎 | TaskFactory |
-| P1 | 实现 `RequestContextMiddleware` 上下文注入 | 无 |
-| P1 | 实现 `startup_with_recovery` 任务恢复 | Redis |
-| P1 | 编写测试用例 (`tests/`) | 所有 P0 |
-| P2 | 实现第一个真实 Agent (`agents/`) | Hub |
-| P2 | Streamlit 前端 (`ui/`) | API |
-| P2 | Docker 部署 (`docker/`) | 所有 P1 |
+| P0 | 意图识别接入 LLM，替换 `_KEYWORD_INTENT_MAP` 关键词表 | AI client 已完成 |
+| P0 | CLIP 语义标签 + 向量匹配替换标签重叠打分 | `vector_service` 落地 |
+| P0 | 创建 Prompt 模板 (`prompts/`) + JSON Schema 校验 | 无 |
+| P1 | `LangGraphEngine` 接入 LangGraph，替换直通 stub | 中枢已稳定 |
+| P1 | SQLite/SqliteSaver 持久化替换内存 store；`recover_pending_tasks` 真实重入队 | Redis（多进程） |
+| P1 | `api/v1/{asset,timeline,export}` 接中枢，替换 501 占位 | sessions/tasks 已完成 |
+| P1 | 实现 `RequestContextMiddleware` 上下文注入、auth / rate-limit 真实策略 | 无 |
+| P2 | V0.2 效果能力：转场类型、滤镜、音量（Composer 当前返回 `unsupported`） | ffmpeg 桥接已完成 |
+| P2 | Web 前端 / WebSocket 实时协作 (`api/websocket` 未挂载) | API |
+| P2 | Docker 沙箱与插件 SDK (`plugins/`) | 所有 P1 |
 
 ---
 

@@ -1,12 +1,13 @@
 """Segment entity — a continuous clip within a video asset, with semantic labels."""
 
+import uuid
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 
 class Segment(BaseModel):
-    segment_id: str = Field(default_factory=lambda: f"seg_{id(object())}")
+    segment_id: str = Field(default_factory=lambda: f"seg_{uuid.uuid4().hex[:12]}")
     asset_id: str = ""
     start_time: float = 0.0
     end_time: float = 0.0

@@ -41,6 +41,7 @@ _KEYWORD_INTENT_MAP: Dict[str, IntentType] = {
     "复制": IntentType.PLAN_DUPLICATE, "拷贝": IntentType.PLAN_DUPLICATE,
     "分析": IntentType.ANALYZE_FULL,
     "优先分析": IntentType.ANALYZE_PRIORITY,
+    "匹配": IntentType.EXECUTE, "选段": IntentType.EXECUTE, "挑选": IntentType.EXECUTE,
     "剪": IntentType.CLIP_TRIM, "裁剪": IntentType.CLIP_TRIM,
     "替换": IntentType.CLIP_REPLACE, "换": IntentType.CLIP_REPLACE,
     "预览": IntentType.CLIP_PREVIEW,
@@ -56,6 +57,9 @@ _KEYWORD_INTENT_MAP: Dict[str, IntentType] = {
     "交换": IntentType.CLIP_SWAP, "对调": IntentType.CLIP_SWAP,
 }
 
+# 长词优先：否则 "做" 会抢在 "能做什么" 前命中，"分析" 会吞掉 "优先分析"。
+_KEYWORDS_BY_LENGTH = tuple(sorted(_KEYWORD_INTENT_MAP, key=len, reverse=True))
+
 
 class IntentRecognizer:
     """V0.1: keyword matching. V0.2+: LLM-based semantic understanding."""
@@ -70,9 +74,9 @@ class IntentRecognizer:
                 intent=IntentType.ASSET_ADD,
                 params={"url": text.strip(), "raw_text": text},
             )
-        for keyword, intent in _KEYWORD_INTENT_MAP.items():
+        for keyword in _KEYWORDS_BY_LENGTH:
             if keyword in text:
-                return IntentResult(intent=intent, params={"raw_text": text})
+                return IntentResult(intent=_KEYWORD_INTENT_MAP[keyword], params={"raw_text": text})
         # 语义完整的自然语言指令默认视为"创建规划"，交由 PlannerAgent 结合 LLM 解读
         return IntentResult(
             intent=IntentType.PLAN_CREATE,
@@ -87,4 +91,4 @@ class IntentRecognizer:
         return len(text.strip()) < 2
 
     def generate_clarification(self, text: str) -> str:
-        return f"请详细描述您的需求，例如'把自我介绍放开头，活动放中间，风景放结尾'"
+        return "请详细描述您的需求，例如'把自我介绍放开头，活动放中间，风景放结尾'"
